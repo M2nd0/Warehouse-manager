@@ -20,7 +20,7 @@ import type { GameState } from './types';
  *   const sim = createSim({ seed: 42 });
  *   sim.dispatch({ type: 'build-rack', x: 6, y: 0, orientation: 'h' });
  *   const events = sim.step();      // one in-game minute
- *   render.sync(sim.state);         // render and UI only read the state
+ *   render.sync(sim.state);         // render and UI take it as a read-only GameView
  *
  * All changes to GameState go through `step()` or `dispatch()`.
  */
@@ -30,7 +30,7 @@ export interface Sim {
   step(): SimEvent[];
   /** Simulate several ticks. Returns everything that happened. */
   run(ticks: number): SimEvent[];
-  /** Apply a player action. */
+  /** Apply a player action now, between ticks. Returns what happened, or why not. */
   dispatch(action: Action): ActionResult;
 }
 
@@ -70,7 +70,9 @@ function wrap(state: GameState): Sim {
       return events;
     },
     dispatch(action) {
-      return applyAction(state, action);
+      ctx.events = [];
+      const error = applyAction(state, ctx, action);
+      return error ? { ok: false, error } : { ok: true, events: ctx.events };
     },
   };
 }

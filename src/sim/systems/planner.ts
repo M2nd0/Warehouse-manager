@@ -31,6 +31,7 @@ function updatePresence(state: GameState, onShift: boolean): void {
     if (onShift && worker.status === 'off') {
       worker.status = 'idle';
       worker.pos = { ...state.hall.entrance };
+      worker.trail = [{ ...state.hall.entrance }];
     } else if (!onShift && worker.status !== 'off' && worker.taskId === null) {
       worker.status = 'off';
     }

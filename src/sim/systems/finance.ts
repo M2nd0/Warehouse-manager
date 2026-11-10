@@ -31,7 +31,7 @@ function collectInvoices(state: GameState, ctx: SimContext): void {
 export function unbilledAmount(client: Client): Cents {
   const { contract, unbilled } = client;
   return (
-    Math.round((unbilled.palletDays * contract.storageFeePerPalletMonth) / daysPerMonth) +
+    unbilled.storageFees +
     unbilled.palletsReceived * contract.receivingFeePerPallet +
     unbilled.lines * contract.pickFeePerLine
   );
@@ -45,18 +45,27 @@ function closeDay(state: GameState, ctx: SimContext): void {
   }
   for (const client of state.clients) {
     const pallets = stored.get(client.id) ?? 0;
+    const fee = Math.round((pallets * client.contract.storageFeePerPalletMonth) / daysPerMonth);
     client.unbilled.palletDays += pallets;
-    state.today.revenue += Math.round((pallets * client.contract.storageFeePerPalletMonth) / daysPerMonth);
+    client.unbilled.storageFees += fee;
+    state.today.revenue += fee;
   }
 
-  // GDD: wages are paid weekly.
+  // Everyone on the payroll earns a day's wage; GDD: wages are paid weekly.
   let wagesToday = 0;
-  let wagesWeek = 0;
   for (const worker of state.workers) {
-    wagesToday += Math.round(worker.wagePerMonth / daysPerMonth);
-    wagesWeek += Math.round((worker.wagePerMonth * daysPerWeek) / daysPerMonth);
+    const earned = Math.round(worker.wagePerMonth / daysPerMonth);
+    worker.wagesOwed += earned;
+    wagesToday += earned;
   }
-  if ((state.day + 1) % daysPerWeek === 0 && wagesWeek > 0) post(state, ctx, 'wages', -wagesWeek);
+  if ((state.day + 1) % daysPerWeek === 0) {
+    let owed = 0;
+    for (const worker of state.workers) {
+      owed += worker.wagesOwed;
+      worker.wagesOwed = 0;
+    }
+    if (owed > 0) post(state, ctx, 'wages', -owed);
+  }
 
   // GDD: clients are invoiced monthly and pay 30 days later.
   if ((state.day + 1) % daysPerMonth === 0) {
@@ -72,7 +81,7 @@ function closeDay(state: GameState, ctx: SimContext): void {
           paid: false,
         });
       }
-      client.unbilled = { palletDays: 0, palletsReceived: 0, lines: 0 };
+      client.unbilled = { palletDays: 0, storageFees: 0, palletsReceived: 0, lines: 0 };
       client.month = { shipped: 0, late: 0, wrong: 0 };
     }
   }

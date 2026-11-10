@@ -8,6 +8,8 @@ import { addOrder, addPallet, at, quiet, runUntil, starterSim, violations } from
 const speed = balance.worker.walkSpeed;
 const jack = balance.vehicles['hand-pallet-jack'];
 
+const walkTo = (x: number, y: number): Step => ({ op: 'walk', to: { kind: 'cell', cell: { x, y } } });
+
 /** Hand a worker a task made of the given steps. */
 function assign(state: GameState, worker: Worker, steps: Step[]): Task {
   const task: Task = {
@@ -55,11 +57,15 @@ function runChecked(sim: Sim, done: (state: GameState) => boolean, limit = 600):
 describe('agents: walking', () => {
   it('covers walkSpeed metres per minute', () => {
     const { sim, worker } = emptyHall();
-    assign(sim.state, worker, [{ op: 'walk', goals: [{ x: 10 + 2 * speed, y: 2 }] }]);
+    assign(sim.state, worker, [walkTo(10 + 2 * speed, 2)]);
 
     sim.step();
     expect(worker.pos).toEqual({ x: 10 + speed, y: 2 });
     expect(worker.status).toBe('walking');
+    // The trail lists where the worker was at the start of the minute and every cell since.
+    expect(worker.trail).toHaveLength(speed + 1);
+    expect(worker.trail[0]).toEqual({ x: 10, y: 2 });
+    expect(worker.trail[worker.trail.length - 1]).toEqual(worker.pos);
 
     sim.step();
     expect(worker.pos).toEqual({ x: 10 + 2 * speed, y: 2 });
@@ -68,10 +74,32 @@ describe('agents: walking', () => {
     expect(sim.state.tasks).toHaveLength(0);
   });
 
+  it('leaves a trail through the corners it turned, for the renderer to follow', () => {
+    const { sim, worker } = emptyHall();
+    worker.pos = { x: 10, y: 3 };
+    // A rack right in front: the way to (12, 5) leads around its end.
+    expect(sim.dispatch({ type: 'build-rack', x: 10, y: 4, orientation: 'h' })).toMatchObject({ ok: true });
+    assign(sim.state, worker, [walkTo(11, 5)]);
+    sim.step();
+    expect(worker.pos).toEqual({ x: 11, y: 5 });
+    expect(worker.trail[0]).toEqual({ x: 10, y: 3 });
+    expect(worker.trail).toHaveLength(6);
+    // Every leg of the trail is one cell long and never crosses the rack.
+    for (let i = 1; i < worker.trail.length; i++) {
+      const a = worker.trail[i - 1];
+      const b = worker.trail[i];
+      expect(Math.abs(a.x - b.x) + Math.abs(a.y - b.y)).toBe(1);
+      expect(b.y === 4 && b.x >= 10 && b.x <= 12).toBe(false);
+    }
+    // Standing still, the trail is just the spot.
+    sim.step();
+    expect(worker.trail).toEqual([{ x: 11, y: 5 }]);
+  });
+
   it('stops between cells when the minute runs out', () => {
     const { sim, worker } = emptyHall();
     worker.stats.speed = 1;
-    assign(sim.state, worker, [{ op: 'walk', goals: [{ x: 20, y: 2 }] }]);
+    assign(sim.state, worker, [walkTo(20, 2)]);
     sim.step();
     expect(worker.pos.x).toBeCloseTo(10 + speed * balance.worker.speedFactorByStat[0], 9);
     expect(worker.pos.y).toBe(2);
@@ -83,9 +111,9 @@ describe('agents: walking', () => {
     vehicle.pos = { x: 13, y: 2 };
     vehicle.userId = worker.id;
     assign(sim.state, worker, [
-      { op: 'walk', goals: [{ x: 13, y: 2 }] },
+      walkTo(13, 2),
       { op: 'take-vehicle', vehicleId: vehicle.id },
-      { op: 'walk', goals: [{ x: 23, y: 2 }] },
+      walkTo(23, 2),
     ]);
     sim.step();
     // 3 m on foot, pick up the jack, then walk on with it for the rest of the minute.
@@ -109,7 +137,7 @@ describe('agents: walking', () => {
         worker.vehicleId = sim.state.vehicles[0].id;
       }
       if (loaded) worker.carrying = 999;
-      assign(sim.state, worker, [{ op: 'walk', goals: [{ x: 2 + distance, y: 5 }] }]);
+      assign(sim.state, worker, [walkTo(2 + distance, 5)]);
       let ticks = 0;
       while (worker.taskId !== null) {
         sim.step();
@@ -125,11 +153,11 @@ describe('agents: walking', () => {
 
   it('finds a new way when a rack is built across the route', () => {
     const { sim, worker } = emptyHall();
-    assign(sim.state, worker, [{ op: 'walk', goals: [{ x: 22, y: 2 }] }]);
+    assign(sim.state, worker, [walkTo(22, 2)]);
     sim.step();
     expect(worker.path.some((c) => c.x === 18 && c.y === 2)).toBe(true);
 
-    expect(sim.dispatch({ type: 'build-rack', x: 18, y: 1, orientation: 'v' })).toEqual({ ok: true });
+    expect(sim.dispatch({ type: 'build-rack', x: 18, y: 1, orientation: 'v' })).toMatchObject({ ok: true });
     runUntil(sim, () => worker.taskId === null, 30);
     expect(worker.pos).toEqual({ x: 22, y: 2 });
   });
@@ -145,17 +173,52 @@ describe('agents: walking', () => {
     ] as const) {
       sim.dispatch({ type: 'build-rack', ...rack });
     }
-    assign(sim.state, worker, [{ op: 'walk', goals: [{ x: 21, y: 5 }] }]);
-    worker.status = 'working';
+    assign(sim.state, worker, [walkTo(21, 5)]);
     const events = sim.run(5);
     expect(events.filter((e) => e.type === 'worker-blocked')).toHaveLength(1);
+    expect(worker.status).toBe('blocked');
     expect(worker.pos).toEqual({ x: 10, y: 2 });
     expect(worker.taskId).not.toBeNull();
+    expect(sim.state.today.busyMinutes).toBe(0);
 
     const wall = sim.state.racks.find((r) => r.x === 19);
-    expect(sim.dispatch({ type: 'demolish-rack', rackId: wall?.id ?? -1 })).toEqual({ ok: true });
+    expect(sim.dispatch({ type: 'demolish-rack', rackId: wall?.id ?? -1 })).toMatchObject({ ok: true });
     runUntil(sim, () => worker.taskId === null, 30);
     expect(worker.pos).toEqual({ x: 21, y: 5 });
+  });
+});
+
+describe('agents: targets', () => {
+  it('serves a rack slot from whichever side is open when the worker sets off', () => {
+    const { sim, worker } = emptyHall();
+    sim.dispatch({ type: 'build-rack', x: 10, y: 4, orientation: 'h' });
+    worker.pos = { x: 10, y: 1 };
+    assign(sim.state, worker, [{ op: 'walk', to: { kind: 'loc', id: 'E-10-1-1' } }]);
+    // After the task was planned, a second rack closes the near side of the first.
+    expect(sim.dispatch({ type: 'build-rack', x: 9, y: 3, orientation: 'h' })).toMatchObject({ ok: true });
+    runUntil(sim, () => worker.taskId === null, 30);
+    expect(worker.pos).toEqual({ x: 10, y: 5 });
+  });
+
+  it('walks to docks, stations and vehicles by id', () => {
+    const { sim, worker } = emptyHall();
+    const { state } = sim;
+    const vehicle = state.vehicles[0];
+    vehicle.pos = { x: 20, y: 6 };
+    assign(state, worker, [
+      { op: 'walk', to: { kind: 'vehicle', id: vehicle.id } },
+      { op: 'walk', to: { kind: 'station', id: state.hall.stations[0].id } },
+      { op: 'walk', to: { kind: 'dock', id: state.hall.docks[0].id } },
+    ]);
+    const visited: string[] = [];
+    for (let i = 0; i < 40 && worker.taskId !== null; i++) {
+      sim.step();
+      for (const p of worker.trail) visited.push(`${p.x},${p.y}`);
+    }
+    expect(worker.taskId).toBeNull();
+    expect(visited).toContain('20,6');
+    expect(visited).toContain('5,8'); // the cell the packing station is served from
+    expect(worker.pos).toEqual(state.hall.docks[0].cell);
   });
 });
 
@@ -250,6 +313,12 @@ describe('agents: work', () => {
     expect(picks.map((s) => (s.op === 'pick' ? s.palletId : 0))).toEqual([near.id, far.id]);
     expect(order.status).toBe('picking');
 
+    // While picking, the step's progress can be read off workLeft / workTotal.
+    runUntil(sim, () => worker.status === 'working', 30);
+    expect(worker.workTotal).toBeCloseTo(balance.handling.pickLine + 3 * balance.handling.pickUnit, 9);
+    expect(worker.workLeft).toBeGreaterThan(0);
+    expect(worker.workLeft).toBeLessThan(worker.workTotal);
+
     runChecked(sim, () => order.status === 'ready');
     expect(far.qty).toBe(46);
     expect(near.qty).toBe(117);
@@ -262,6 +331,7 @@ describe('agents: work', () => {
     // Packed at the packing station, which is served from the cell north of it.
     expect(worker.pos).toEqual({ x: 5, y: 8 });
     expect(worker.vehicleId).toBeNull();
+    expect(worker.workTotal).toBe(0);
   });
 
   it('takes a line from two pallets when one does not have enough, and removes the empty pallet', () => {

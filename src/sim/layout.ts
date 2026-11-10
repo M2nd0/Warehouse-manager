@@ -1,5 +1,5 @@
 import { balance } from '../data/balance';
-import type { Cell, GameState, Id, LocId, Location, Orientation, Rack, Zone } from './types';
+import type { Cell, GameState, Id, LocId, Location, Orientation, Rack, Vec2, Zone } from './types';
 
 export interface RackPlacement {
   x: number;
@@ -60,7 +60,7 @@ function isOccupiedCell(state: GameState, cell: Cell): boolean {
   if (state.hall.zones.some((z) => z.cells.some(same))) return true;
   if (state.racks.some((r) => rackCells(r).some(same))) return true;
   // Do not build on top of a parked vehicle or a person.
-  const here = (pos: Cell): boolean => Math.round(pos.x) === cell.x && Math.round(pos.y) === cell.y;
+  const here = (pos: Vec2): boolean => Math.round(pos.x) === cell.x && Math.round(pos.y) === cell.y;
   if (state.vehicles.some((v) => here(v.pos))) return true;
   return state.workers.some((w) => w.status !== 'off' && here(w.pos));
 }
@@ -105,7 +105,7 @@ export function addRack(state: GameState, placement: RackPlacement): Rack {
         kind: 'rack',
         rackId: rack.id,
         zoneId: null,
-        cell,
+        cell: { x: cell.x, y: cell.y },
         level,
         capacityKg: balance.rack.capacityKg,
         palletId: null,

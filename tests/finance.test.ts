@@ -3,6 +3,7 @@ import { balance, eur } from '../src/data/balance';
 import { createSim } from '../src/sim';
 import type { Sim } from '../src/sim';
 import { ledgerTotal, post } from '../src/sim/economy/ledger';
+import { createWorker } from '../src/sim/state';
 import { unbilledAmount } from '../src/sim/systems/finance';
 import { TICKS_PER_DAY } from '../src/sim/time';
 import type { LedgerEntry, LedgerKind } from '../src/sim/types';
@@ -51,27 +52,40 @@ describe('finance', () => {
     ]);
   });
 
-  it('pays wages at the end of every week', () => {
+  it('wages are earned by the day and paid at the end of every week', () => {
     const sim = quiet(createSim({ workers: 2 }));
+    const daily = Math.round(balance.worker.wagePerMonth / daysPerMonth);
     sim.run(6 * TICKS_PER_DAY);
     expect(entries(sim, 'wages')).toHaveLength(0);
+    expect(sim.state.workers.map((w) => w.wagesOwed)).toEqual([6 * daily, 6 * daily]);
+
     sim.run(TICKS_PER_DAY);
-    const weekly = Math.round((balance.worker.wagePerMonth * daysPerWeek) / daysPerMonth);
     expect(entries(sim, 'wages')).toEqual([
-      { tick: daysPerWeek * TICKS_PER_DAY - 1, kind: 'wages', amount: -2 * weekly, clientId: null },
+      { tick: daysPerWeek * TICKS_PER_DAY - 1, kind: 'wages', amount: -2 * daysPerWeek * daily, clientId: null },
     ]);
+    expect(sim.state.workers.map((w) => w.wagesOwed)).toEqual([0, 0]);
+    // What the daily reports showed as wages is exactly what was paid.
+    expect(sim.state.reports.reduce((sum, r) => sum + r.wages, 0)).toBe(2 * daysPerWeek * daily);
+
     sim.run(daysPerWeek * TICKS_PER_DAY);
     expect(entries(sim, 'wages')).toHaveLength(2);
+  });
+
+  it('someone who joins mid-week is paid for the days they were on the payroll', () => {
+    const sim = quiet(createSim({ workers: 1 }));
+    const daily = Math.round(balance.worker.wagePerMonth / daysPerMonth);
+    sim.run(5 * TICKS_PER_DAY);
+    createWorker(sim.state);
+    sim.run(2 * TICKS_PER_DAY);
+    expect(entries(sim, 'wages')[0].amount).toBe(-(7 + 2) * daily);
   });
 
   it('prices unbilled services per the contract', () => {
     const { state } = createSim();
     const client = state.clients[0];
-    client.unbilled = { palletDays: 45, palletsReceived: 7, lines: 100 };
-    const { storageFeePerPalletMonth, receivingFeePerPallet, pickFeePerLine } = client.contract;
-    expect(unbilledAmount(client)).toBe(
-      Math.round((45 * storageFeePerPalletMonth) / daysPerMonth) + 7 * receivingFeePerPallet + 100 * pickFeePerLine,
-    );
+    client.unbilled = { palletDays: 45, storageFees: 1200, palletsReceived: 7, lines: 100 };
+    const { receivingFeePerPallet, pickFeePerLine } = client.contract;
+    expect(unbilledAmount(client)).toBe(1200 + 7 * receivingFeePerPallet + 100 * pickFeePerLine);
   });
 
   it('charges storage per pallet per day in a rack', () => {
@@ -107,7 +121,7 @@ describe('finance', () => {
         paid: false,
       },
     ]);
-    expect(state.clients[0].unbilled).toEqual({ palletDays: 0, palletsReceived: 0, lines: 0 });
+    expect(state.clients[0].unbilled).toEqual({ palletDays: 0, storageFees: 0, palletsReceived: 0, lines: 0 });
     expect(entries(sim, 'invoice')).toHaveLength(0);
 
     const due = state.invoices[0].dueDay;

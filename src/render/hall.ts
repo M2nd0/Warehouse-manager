@@ -11,7 +11,9 @@ import {
   MeshStandardMaterial,
   PlaneGeometry,
 } from 'three';
-import type { Cell, Hall, Side } from '../sim/types';
+import type { Cell, GameView, Side } from '../sim/types';
+
+type Hall = GameView['hall'];
 import { palette } from './palette';
 
 /**

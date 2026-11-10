@@ -1,4 +1,4 @@
-import type { Cell, GameState, Id, LocId } from './types';
+import type { Cell, GameState, Id, LocId, Vec2 } from './types';
 
 /**
  * Walkability of the hall floor plus everything derived from it.
@@ -44,7 +44,7 @@ export function isWalkable(nav: NavGrid, x: number, y: number): boolean {
 }
 
 /** Region of the cell nearest to a (possibly fractional) position; -1 if blocked. */
-export function regionAt(nav: NavGrid, pos: Cell): number {
+export function regionAt(nav: NavGrid, pos: Vec2): number {
   const x = Math.round(pos.x);
   const y = Math.round(pos.y);
   return inBounds(nav, x, y) ? nav.region[y * nav.width + x] : -1;
@@ -59,7 +59,7 @@ export function reachable(nav: NavGrid, region: number, cells: readonly Cell[]):
   return false;
 }
 
-export function manhattan(a: Cell, b: Cell): number {
+export function manhattan(a: Vec2, b: Vec2): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 

@@ -1,5 +1,5 @@
 import { Color, DirectionalLight, Fog, HemisphereLight, Scene, WebGLRenderer } from 'three';
-import type { GameState } from '../sim/types';
+import type { GameView } from '../sim/types';
 import { createCameraRig } from './camera';
 import { buildHall } from './hall';
 import { palette } from './palette';
@@ -10,12 +10,12 @@ import { palette } from './palette';
  */
 export interface View {
   /** Bring the scene in line with the simulation state. */
-  sync(state: GameState): void;
+  sync(state: GameView): void;
   draw(dtSeconds: number): void;
   dispose(): void;
 }
 
-export function createView(canvas: HTMLCanvasElement, state: GameState): View {
+export function createView(canvas: HTMLCanvasElement, state: GameView): View {
   const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
@@ -69,7 +69,7 @@ export function createView(canvas: HTMLCanvasElement, state: GameState): View {
 }
 
 /** Changes when the building itself changes (a bigger hall, new zones). */
-function hallSignature(state: GameState): string {
+function hallSignature(state: GameView): string {
   const { hall } = state;
   const zoneCells = hall.zones.reduce((n, z) => n + z.cells.length, 0);
   return `${hall.width}x${hall.depth}:${hall.docks.length}:${hall.zones.length}:${zoneCells}:${hall.stations.length}`;

@@ -11,8 +11,10 @@ import type {
   Order,
   Pallet,
   Step,
+  Target,
   Task,
   TaskKind,
+  Vec2,
   Vehicle,
   Worker,
   ZoneKind,
@@ -28,12 +30,10 @@ import { chooseLocation } from './putaway';
  * right now.
  */
 
-const walk = (cells: readonly Cell[]): Step => ({
-  op: 'walk',
-  goals: cells.map((c) => ({ x: c.x, y: c.y })),
-});
+const walk = (to: Target): Step => ({ op: 'walk', to });
+const toLoc = (id: LocId): Step => walk({ kind: 'loc', id });
 
-const cellOf = (pos: Cell): Cell => ({ x: Math.round(pos.x), y: Math.round(pos.y) });
+const cellOf = (pos: Vec2): Cell => ({ x: Math.round(pos.x), y: Math.round(pos.y) });
 
 const accessOf = (nav: NavGrid, locId: LocId): Cell[] => nav.access.get(locId) ?? [];
 
@@ -73,7 +73,7 @@ function findVehicle(state: GameState, nav: NavGrid, worker: Worker): Vehicle | 
 }
 
 const fetchVehicle = (vehicle: Vehicle): Step[] => [
-  walk([cellOf(vehicle.pos)]),
+  walk({ kind: 'vehicle', id: vehicle.id }),
   { op: 'take-vehicle', vehicleId: vehicle.id },
 ];
 
@@ -134,9 +134,9 @@ export function planUnload(state: GameState, nav: NavGrid, worker: Worker): Task
 
     const task = newTask(state, 'unload', worker, [
       ...fetchVehicle(vehicle),
-      walk([dock.cell]),
+      walk({ kind: 'dock', id: dock.id }),
       { op: 'unload', truckId: truck.id, palletId: pallet.id },
-      walk(accessOf(nav, slot.id)),
+      toLoc(slot.id),
       { op: 'drop', palletId: pallet.id, locId: slot.id },
     ]);
     pallet.taskId = task.id;
@@ -150,12 +150,19 @@ export function planUnload(state: GameState, nav: NavGrid, worker: Worker): Task
 /** Move the oldest pallet waiting in receiving to a storage location. */
 export function planPutaway(state: GameState, nav: NavGrid, worker: Worker): Task | null {
   const region = regionAt(nav, worker.pos);
+  // Look in the receiving zone only: no need to go through every pallet in the building.
   let pallet: Pallet | null = null;
-  for (const p of state.pallets.values()) {
-    if (p.status !== 'received' || p.locId === 'in-transit' || p.taskId !== null) continue;
-    if (!reachable(nav, region, accessOf(nav, p.locId))) continue;
-    pallet = p;
-    break;
+  for (const zone of state.hall.zones) {
+    if (zone.kind !== 'receiving') continue;
+    for (const cell of zone.cells) {
+      const slot = state.locations.get(floorLocId('receiving', cell));
+      const p = slot && slot.palletId !== null ? state.pallets.get(slot.palletId) : undefined;
+      if (!p || p.status !== 'received' || p.taskId !== null) continue;
+      if (!reachable(nav, region, accessOf(nav, slot?.id ?? ''))) continue;
+      if (!pallet || p.arrivedTick < pallet.arrivedTick || (p.arrivedTick === pallet.arrivedTick && p.id < pallet.id)) {
+        pallet = p;
+      }
+    }
   }
   if (!pallet || pallet.locId === 'in-transit') return null;
 
@@ -167,9 +174,9 @@ export function planPutaway(state: GameState, nav: NavGrid, worker: Worker): Tas
 
   const task = newTask(state, 'putaway', worker, [
     ...fetchVehicle(vehicle),
-    walk(accessOf(nav, pallet.locId)),
+    toLoc(pallet.locId),
     { op: 'lift', palletId: pallet.id, order: null },
-    walk(accessOf(nav, target.id)),
+    toLoc(target.id),
     { op: 'drop', palletId: pallet.id, locId: target.id },
   ]);
   pallet.taskId = task.id;
@@ -224,10 +231,10 @@ function planEachPick(state: GameState, nav: NavGrid, worker: Worker, order: Ord
 
   const steps: Step[] = [];
   for (const stop of stops) {
-    steps.push(walk(accessOf(nav, stop.loc.id)));
+    steps.push(toLoc(stop.loc.id));
     steps.push({ op: 'pick', palletId: stop.pallet.id, orderId: order.id, line: stop.line, qty: stop.qty });
   }
-  steps.push(walk(nav.stationAccess.get(station.id) ?? []));
+  steps.push(walk({ kind: 'station', id: station.id }));
   steps.push({ op: 'pack', orderId: order.id });
 
   const task = newTask(state, 'pick', worker, steps, order.id);
@@ -241,6 +248,10 @@ function planPalletPick(state: GameState, nav: NavGrid, worker: Worker, order: O
   const region = regionAt(nav, worker.pos);
   const vehicle = findVehicle(state, nav, worker);
   if (!vehicle) return null;
+  // Cheap check first: with a full dispatch zone there is no point looking for pallets.
+  const dock = state.hall.docks[0];
+  const slots = freeFloorSlots(state, nav, 'dispatch', region, dock ? dock.cell : cellOf(worker.pos));
+  if (slots.length === 0) return null;
 
   const chosen: { pallet: Pallet; loc: Location; line: number }[] = [];
   const taken = new Set<Id>();
@@ -270,15 +281,13 @@ function planPalletPick(state: GameState, nav: NavGrid, worker: Worker, order: O
     }
   }
 
-  const dock = state.hall.docks[0];
-  const slots = freeFloorSlots(state, nav, 'dispatch', region, dock ? dock.cell : here);
-  if (slots.length < chosen.length) return null; // dispatch zone is full
+  if (slots.length < chosen.length) return null; // not enough room in the dispatch zone
 
   const steps: Step[] = [...fetchVehicle(vehicle)];
   chosen.forEach((item, i) => {
-    steps.push(walk(accessOf(nav, item.loc.id)));
+    steps.push(toLoc(item.loc.id));
     steps.push({ op: 'lift', palletId: item.pallet.id, order: { id: order.id, line: item.line } });
-    steps.push(walk(accessOf(nav, slots[i].id)));
+    steps.push(toLoc(slots[i].id));
     steps.push({ op: 'drop', palletId: item.pallet.id, locId: slots[i].id });
   });
   steps.push({ op: 'stage', orderId: order.id });

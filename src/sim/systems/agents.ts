@@ -11,8 +11,12 @@ const EPSILON = 1e-9;
  */
 export function step(state: GameState, ctx: SimContext): void {
   for (const worker of state.workers) {
-    if (worker.status === 'off') continue;
+    if (worker.status === 'off') {
+      if (worker.trail.length > 0) worker.trail = [];
+      continue;
+    }
     state.today.shiftMinutes++;
+    worker.trail = [{ x: worker.pos.x, y: worker.pos.y }];
 
     const task = worker.taskId === null ? undefined : state.tasks.find((t) => t.id === worker.taskId);
     if (!task) {
@@ -48,7 +52,7 @@ export function step(state: GameState, ctx: SimContext): void {
       worker.status = 'idle';
     } else if (!blocked) {
       worker.status = task.steps[task.stepIdx].op === 'walk' ? 'walking' : 'working';
-    }
+    } // else: beginStep has marked the worker 'blocked'
   }
 }
 
@@ -69,6 +73,7 @@ function walk(worker: Worker, budget: number, speed: number): number {
       worker.pos = { x: worker.pos.x + dx * f, y: worker.pos.y + dy * f };
       budget = 0;
     }
+    worker.trail.push({ x: worker.pos.x, y: worker.pos.y });
   }
   return budget;
 }

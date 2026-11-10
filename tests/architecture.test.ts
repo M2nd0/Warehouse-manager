@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { GameView } from '../src/sim';
 
 /** All .ts files under a directory. */
 function sources(dir: string): string[] {
@@ -43,6 +44,25 @@ describe('architecture (CLAUDE.md)', () => {
     for (const [file, module] of Object.entries(systems)) {
       expect(typeof module.step, file).toBe('function');
       expect((module.step as (...args: unknown[]) => unknown).length, file).toBe(2);
+    }
+  });
+
+  it('render and UI get a view of the state the compiler will not let them change', () => {
+    // Never called: this only has to compile. If GameView stops being
+    // read-only, the unused @ts-expect-error lines fail `npm run typecheck`.
+    const tamper = (view: GameView): void => {
+      // @ts-expect-error cash is read-only
+      view.cash = 0;
+      // @ts-expect-error nested objects are read-only
+      view.workers[0].pos.x = 0;
+      // @ts-expect-error arrays are read-only
+      view.orders.push(view.orders[0]);
+      // @ts-expect-error maps are read-only
+      view.pallets.delete(1);
+    };
+    expect(typeof tamper).toBe('function');
+    for (const file of [...sources('src/render'), 'src/ui/index.tsx']) {
+      expect(readFileSync(file, 'utf8'), file).not.toMatch(/import[^;]*\bGameState\b/);
     }
   });
 

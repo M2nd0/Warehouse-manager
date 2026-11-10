@@ -1,6 +1,6 @@
 import { MOUSE, PerspectiveCamera, Vector3 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { Hall } from '../sim/types';
+import type { GameView } from '../sim/types';
 
 /**
  * Manager's-eye camera (GDD "Kamera"): orbit around the hall, zoom from the
@@ -24,7 +24,7 @@ export interface CameraRig {
   dispose(): void;
 }
 
-export function createCameraRig(dom: HTMLElement, hall: Hall): CameraRig {
+export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): CameraRig {
   const camera = new PerspectiveCamera(35, 1, 0.5, 600);
   const controls = new OrbitControls(camera, dom);
   const span = Math.max(hall.width, hall.depth);

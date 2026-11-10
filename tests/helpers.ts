@@ -15,7 +15,7 @@ import type { GameState, LocId, Order, Pallet, PalletStatus, SkuId } from '../sr
 export function starterSim(options: NewGameOptions = {}): Sim {
   const sim = createSim({ seed: 1, ...options });
   for (const rack of garageStarterRacks) {
-    expect(sim.dispatch({ type: 'build-rack', ...rack })).toEqual({ ok: true });
+    expect(sim.dispatch({ type: 'build-rack', ...rack })).toMatchObject({ ok: true });
   }
   return sim;
 }

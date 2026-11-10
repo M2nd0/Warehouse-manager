@@ -139,6 +139,18 @@ describe('a longer run', () => {
     expect(state.reports).toHaveLength(days);
     expect(state.invoices.length).toBeGreaterThanOrEqual(2);
     expect(state.ledger.filter((e) => e.kind === 'invoice').length).toBeGreaterThanOrEqual(2);
+    // What the daily reports showed as earned is exactly what gets invoiced.
+    const { daysPerMonth } = balance.time;
+    for (const month of [0, 1]) {
+      const earned = state.reports
+        .filter((r) => Math.floor(r.day / daysPerMonth) === month)
+        .reduce((sum, r) => sum + r.revenue, 0);
+      const invoiced = state.invoices
+        .filter((i) => i.issuedDay === (month + 1) * daysPerMonth - 1)
+        .reduce((sum, i) => sum + i.amount, 0);
+      expect(invoiced).toBe(earned);
+      expect(invoiced).toBeGreaterThan(0);
+    }
     // Finished work does not pile up in the state.
     expect(state.orders.every((o) => o.status !== 'shipped')).toBe(true);
     expect(state.trucks.every((t) => t.status !== 'done')).toBe(true);

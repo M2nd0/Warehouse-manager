@@ -27,7 +27,10 @@ TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game fram
 - GameState is plain data (objects, arrays, Maps). Anything derived (navigation grid, per-tick time flags) lives in `SimContext` and is rebuilt on load. IDs come from `state.nextId`, randomness from `state.rng` via `src/sim/rng.ts`.
 - No `Math.exp/log/pow/sin` in the sim: only arithmetic that is bit-identical across JS engines.
 - Grid: cell (x, y) is a 1 m square, x along the hall width, y along its depth; in the 3D scene grid x → X and grid y → Z.
-- Workers move several cells per tick; a tick's minute is split exactly between walking and work steps (`src/sim/systems/agents.ts`).
+- Workers move several cells per tick; a tick's minute is split exactly between walking and work steps (`src/sim/systems/agents.ts`). To animate them, follow `worker.trail` (where they went during the last tick), not a straight line to `worker.pos`.
+- Render and UI signatures take `GameView` (deep read-only `GameState`), never `GameState`.
+- `sim.dispatch(action)` applies an action between ticks with the same context systems get (it can `post()` money and `emit()` events) and returns those events; a refused action changes nothing.
+- A task is a list of steps; `walk` steps name a target (`loc`, `dock`, `station`, `vehicle`, `cell`) and the path is found when the step starts. Whatever a task claims (pallet, slot, units, vehicle) is reserved when it is planned.
 
 ## Workflow
 - Write a Vitest test for every sim system before or with the implementation.

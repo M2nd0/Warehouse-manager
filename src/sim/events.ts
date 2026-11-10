@@ -1,9 +1,9 @@
 import type { DailyReport, Id, LedgerEntry, LocId } from './types';
 
 /**
- * Things that happened during a tick, for the UI (notifications, sounds,
- * icons). Events are transient: they are returned by `sim.step()` and are not
- * part of the saved state.
+ * Things that happened, for the UI (notifications, sounds, icons). Events are
+ * transient: they are returned by `sim.step()` and `sim.dispatch()` and are
+ * not part of the saved state.
  */
 export type SimEvent =
   | { type: 'truck-arrived'; tick: number; truckId: Id }
@@ -19,6 +19,8 @@ export type SimEvent =
   | { type: 'order-late'; tick: number; orderId: Id }
   /** A worker cannot reach where the task sends them (layout problem). */
   | { type: 'worker-blocked'; tick: number; workerId: Id }
+  | { type: 'rack-built'; tick: number; rackId: Id }
+  | { type: 'rack-demolished'; tick: number; rackId: Id }
   | { type: 'money'; tick: number; entry: LedgerEntry }
   | { type: 'day-ended'; tick: number; report: DailyReport };
 

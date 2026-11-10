@@ -1,6 +1,6 @@
 import '@fontsource-variable/inter';
 import { render } from 'preact';
-import type { GameState } from '../sim/types';
+import type { GameView } from '../sim/types';
 import { Hud } from './Hud';
 import './styles.css';
 
@@ -16,7 +16,7 @@ export interface UiHandlers {
 
 export interface Ui {
   /** Show the current state. The UI only reads it. */
-  sync(state: GameState, loop: LoopState): void;
+  sync(state: GameView, loop: LoopState): void;
 }
 
 /** HTML overlay above the canvas. */

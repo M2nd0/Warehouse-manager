@@ -16,7 +16,14 @@ export type SkuId = string;
 export type ClientId = string;
 export type Cents = number;
 
+/** A grid cell: whole numbers. */
 export interface Cell {
+  x: number;
+  y: number;
+}
+
+/** A continuous position in cell coordinates (cell centres are whole numbers). */
+export interface Vec2 {
   x: number;
   y: number;
 }
@@ -190,7 +197,14 @@ export interface Client {
   contract: Contract;
   profile: ClientProfile;
   /** Services delivered since the last invoice. */
-  unbilled: { palletDays: number; palletsReceived: number; lines: number };
+  unbilled: {
+    /** Pallets in racks, summed over the days. */
+    palletDays: number;
+    /** Storage fees for those pallet-days, rounded day by day. */
+    storageFees: Cents;
+    palletsReceived: number;
+    lines: number;
+  };
   /** SLA performance in the current month. */
   month: { shipped: number; late: number; wrong: number };
 }
@@ -255,8 +269,12 @@ export interface Truck {
 
 export type Role = 'warehouseman';
 export type Qualification = 'none' | 'forklift' | 'shift-lead';
-/** off = not in the building */
-export type WorkerStatus = 'off' | 'idle' | 'walking' | 'working';
+/**
+ * off     – not in the building
+ * idle    – in the building with nothing to do
+ * blocked – has a task but cannot get where it sends them (layout problem)
+ */
+export type WorkerStatus = 'off' | 'idle' | 'walking' | 'working' | 'blocked';
 
 /** Each 1–5. */
 export interface WorkerStats {
@@ -277,10 +295,17 @@ export interface Worker {
   /** 0–100 */
   morale: number;
   wagePerMonth: Cents;
+  /** Wages earned since the last pay day. */
+  wagesOwed: Cents;
   hiredDay: number;
   status: WorkerStatus;
-  /** Position in cell coordinates; fractional while walking. */
-  pos: Cell;
+  pos: Vec2;
+  /**
+   * Where the worker went during the last tick: the position at its start,
+   * every corner passed, and `pos` last. A worker covers several cells per
+   * tick, so animate along this line rather than straight to `pos`.
+   */
+  trail: Vec2[];
   taskId: Id | null;
   /** Vehicle in hand. */
   vehicleId: Id | null;
@@ -288,8 +313,10 @@ export interface Worker {
   carrying: Id | null;
   /** Remaining cells of the current walk. */
   path: Cell[];
-  /** Minutes left on the current work step. */
+  /** Minutes left on the current work step… */
   workLeft: number;
+  /** …out of this many (0 when not on a work step). */
+  workTotal: number;
 }
 
 // ---------------------------------------------------------- vehicles ----
@@ -300,7 +327,7 @@ export interface Vehicle {
   id: Id;
   kind: VehicleKind;
   /** Where it stands (follows its user while in hand). */
-  pos: Cell;
+  pos: Vec2;
   /** Worker who holds or has reserved it. */
   userId: Id | null;
   /** Operating hours (motohodiny). */
@@ -311,9 +338,18 @@ export interface Vehicle {
 
 export type TaskKind = 'unload' | 'putaway' | 'pick';
 
+/** Somewhere a worker can be sent. */
+export type Target =
+  | { kind: 'cell'; cell: Cell }
+  /** The aisle next to a storage location. */
+  | { kind: 'loc'; id: LocId }
+  | { kind: 'dock'; id: Id }
+  | { kind: 'station'; id: Id }
+  | { kind: 'vehicle'; id: Id };
+
 export type Step =
-  /** Walk to the nearest of `goals`. */
-  | { op: 'walk'; goals: Cell[] }
+  /** Walk to the target (to the nearest cell it can be served from). */
+  | { op: 'walk'; to: Target }
   | { op: 'take-vehicle'; vehicleId: Id }
   /** Pull a pallet out of the truck and check it against the delivery note. */
   | { op: 'unload'; truckId: Id; palletId: Id }
@@ -412,15 +448,30 @@ export interface DailyReport extends DayStats {
 
 // ---------------------------------------------------------- incidents ----
 
-/** Filled in by milestone M4. */
+/** Something in the game an incident, event or panel can point at. */
+export type EntityRef =
+  | { kind: 'worker' | 'vehicle' | 'truck' | 'dock' | 'rack' | 'pallet' | 'order'; id: Id }
+  | { kind: 'location'; id: LocId }
+  | { kind: 'client'; id: ClientId };
+
+/**
+ * A problem the player has to decide about (GDD "Realistické problémy").
+ * The game never resolves one by itself. Incidents arrive with milestone M4;
+ * until then the list stays empty.
+ */
 export interface Incident {
   id: Id;
   kind: string;
   /** i18n key of the cause shown to the player. */
   cause: string;
+  /** What it is about, and where its icon goes in the hall. */
+  subject: EntityRef | null;
+  cell: Cell | null;
   createdTick: number;
   deadlineTick: number | null;
-  choices: string[];
+  /** The 2–3 things the player can do about it. */
+  choices: { id: string; labelKey: string }[];
+  resolved: { choiceId: string; tick: number } | null;
 }
 
 // -------------------------------------------------------------- state ----
@@ -460,3 +511,19 @@ export interface GameState {
   reports: DailyReport[];
   settings: { putawayStrategy: PutawayStrategy };
 }
+
+// ------------------------------------------------------- read-only view ----
+
+export type DeepReadonly<T> = T extends (infer U)[]
+  ? readonly DeepReadonly<U>[]
+  : T extends Map<infer K, infer V>
+    ? ReadonlyMap<K, DeepReadonly<V>>
+    : T extends object
+      ? { readonly [P in keyof T]: DeepReadonly<T[P]> }
+      : T;
+
+/**
+ * GameState as render and UI get it: they may look, not touch. All changes
+ * go through `sim.step()` and `sim.dispatch()` (CLAUDE.md).
+ */
+export type GameView = DeepReadonly<GameState>;

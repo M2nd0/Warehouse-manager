@@ -234,10 +234,10 @@ describe('task planner', () => {
     const sim = morning();
     const { state } = sim;
     // Wall the worker's corner off from the rest of the hall.
-    for (const y of [1, 4]) expect(sim.dispatch({ type: 'build-rack', x: 5, y, orientation: 'v' })).toEqual({ ok: true });
+    for (const y of [1, 4]) expect(sim.dispatch({ type: 'build-rack', x: 5, y, orientation: 'v' })).toMatchObject({ ok: true });
     expect(sim.dispatch({ type: 'build-rack', x: 5, y: 7, orientation: 'v' })).toEqual({ ok: false, error: 'occupied' });
-    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 7, orientation: 'h' })).toEqual({ ok: true });
-    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 8, orientation: 'h' })).toEqual({ ok: true });
+    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 7, orientation: 'h' })).toMatchObject({ ok: true });
+    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 8, orientation: 'h' })).toMatchObject({ ok: true });
     addPallet(state, 'ES-02', 'A-27-1-3');
     addOrder(state, 'eshop', [['ES-02', 1]], at(0, 15));
     plan(state);

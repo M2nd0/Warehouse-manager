@@ -20,7 +20,7 @@ describe('hall and racks', () => {
 
   it('builds a rack with addressed slots on every level', () => {
     const sim = createSim();
-    expect(sim.dispatch({ type: 'build-rack', x: 6, y: 2, orientation: 'h' })).toEqual({ ok: true });
+    expect(sim.dispatch({ type: 'build-rack', x: 6, y: 2, orientation: 'h' })).toMatchObject({ ok: true });
     const rack = sim.state.racks[0];
     expect(rackLocId(rack, 1, 1)).toBe('C-06-1-1');
     const slots = [...sim.state.locations.values()].filter((l) => l.rackId === rack.id);
@@ -42,7 +42,7 @@ describe('hall and racks', () => {
     expect(build(3, 0)).toEqual({ ok: false, error: 'occupied' }); // receiving zone
     expect(build(4, 9)).toEqual({ ok: false, error: 'occupied' }); // dispatch zone + packing station
 
-    expect(build(10, 3)).toEqual({ ok: true });
+    expect(build(10, 3)).toMatchObject({ ok: true });
     expect(build(12, 3)).toEqual({ ok: false, error: 'occupied' }); // overlaps the rack above
     expect(build(11, 2, 'v')).toEqual({ ok: false, error: 'occupied' });
     expect(sim.state.racks).toHaveLength(1);
@@ -59,7 +59,7 @@ describe('hall and racks', () => {
 
     sim.state.pallets.delete(pallet.id);
     (sim.state.locations.get('A-06-1-1') as { palletId: number | null }).palletId = null;
-    expect(sim.dispatch({ type: 'demolish-rack', rackId: rack.id })).toEqual({ ok: true });
+    expect(sim.dispatch({ type: 'demolish-rack', rackId: rack.id })).toMatchObject({ ok: true });
     expect(sim.state.racks).toHaveLength(0);
     expect([...sim.state.locations.values()].some((l) => l.kind === 'rack')).toBe(false);
   });
@@ -94,6 +94,28 @@ describe('hall and racks', () => {
     const nav = buildNav(sim.state);
     expect(nav.access.get('E-10-1-1')).toEqual([{ x: 10, y: 3 }, { x: 10, y: 5 }]);
     expect(nav.access.get('D-20-1-2')).toEqual([{ x: 19, y: 4 }, { x: 21, y: 4 }]);
+  });
+
+  it('tells the UI what an action did', () => {
+    const sim = createSim();
+    const built = sim.dispatch({ type: 'build-rack', x: 10, y: 4, orientation: 'h' });
+    const rackId = sim.state.racks[0].id;
+    expect(built).toEqual({ ok: true, events: [{ type: 'rack-built', tick: 0, rackId }] });
+    expect(sim.dispatch({ type: 'demolish-rack', rackId })).toEqual({
+      ok: true,
+      events: [{ type: 'rack-demolished', tick: 0, rackId }],
+    });
+    // Events of an action are handed back by dispatch, not by the next step.
+    expect(sim.step().some((e) => e.type === 'rack-built' || e.type === 'rack-demolished')).toBe(false);
+  });
+
+  it('slots do not share their cell objects', () => {
+    const sim = createSim();
+    sim.dispatch({ type: 'build-rack', x: 10, y: 4, orientation: 'h' });
+    const floor = sim.state.locations.get('E-10-1-1');
+    const above = sim.state.locations.get('E-10-2-1');
+    expect(above?.cell).toEqual(floor?.cell);
+    expect(above?.cell).not.toBe(floor?.cell);
   });
 
   it('bumps the layout version so caches rebuild', () => {

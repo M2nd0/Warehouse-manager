@@ -74,7 +74,7 @@ describe('A* pathfinding', () => {
       { x: 19, y: 4, orientation: 'v' },
       { x: 23, y: 4, orientation: 'v' },
     ] as const) {
-      expect(sim.dispatch({ type: 'build-rack', ...rack })).toEqual({ ok: true });
+      expect(sim.dispatch({ type: 'build-rack', ...rack })).toMatchObject({ ok: true });
     }
     const nav = buildNav(sim.state);
     expect(findPath(nav, { x: 2, y: 5 }, [{ x: 21, y: 5 }])).toBeNull();

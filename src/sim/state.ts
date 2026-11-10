@@ -80,7 +80,7 @@ function createClient(spec: ClientSpec, startDay: number): Client {
       maxPalletsPerDelivery: terms.maxPalletsPerDelivery,
       targetPallets: { ...spec.targetPallets },
     },
-    unbilled: { palletDays: 0, palletsReceived: 0, lines: 0 },
+    unbilled: { palletDays: 0, storageFees: 0, palletsReceived: 0, lines: 0 },
     month: { shipped: 0, late: 0, wrong: 0 },
   };
 }
@@ -96,14 +96,17 @@ export function createWorker(state: GameState): Worker {
     fatigue: 0,
     morale: balance.worker.startMorale,
     wagePerMonth: balance.worker.wagePerMonth,
+    wagesOwed: 0,
     hiredDay: state.day,
     status: 'off',
     pos: { ...state.hall.entrance },
+    trail: [],
     taskId: null,
     vehicleId: null,
     carrying: null,
     path: [],
     workLeft: 0,
+    workTotal: 0,
   };
   state.workers.push(worker);
   return worker;

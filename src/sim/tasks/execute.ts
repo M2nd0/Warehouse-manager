@@ -6,7 +6,7 @@ import { isWalkable } from '../nav';
 import type { NavGrid } from '../nav';
 import { findPath } from '../pathfinding';
 import { chance } from '../rng';
-import type { Cell, GameState, Order, OrderLine, Step, Task, Worker } from '../types';
+import type { Cell, GameState, Order, OrderLine, Step, Target, Task, Vec2, Worker } from '../types';
 
 /**
  * Carrying out task steps: how long each takes and what it changes.
@@ -62,8 +62,28 @@ function stepMinutes(state: GameState, worker: Worker, step: Step): number {
   return minutes / speedFactor(worker);
 }
 
+/** Cells from which a target can be reached or served, on the current floor plan. */
+export function targetCells(state: GameState, nav: NavGrid, to: Target): Cell[] {
+  switch (to.kind) {
+    case 'cell':
+      return [to.cell];
+    case 'loc':
+      return nav.access.get(to.id) ?? [];
+    case 'station':
+      return nav.stationAccess.get(to.id) ?? [];
+    case 'dock': {
+      const dock = state.hall.docks.find((d) => d.id === to.id);
+      return dock ? [dock.cell] : [];
+    }
+    case 'vehicle': {
+      const vehicle = state.vehicles.find((v) => v.id === to.id);
+      return vehicle ? [{ x: Math.round(vehicle.pos.x), y: Math.round(vehicle.pos.y) }] : [];
+    }
+  }
+}
+
 /** The walkable cell a (possibly mid-step) worker is standing closest to. */
-function standingCell(nav: NavGrid, pos: Cell): Cell {
+function standingCell(nav: NavGrid, pos: Vec2): Cell {
   const rounded = { x: Math.round(pos.x), y: Math.round(pos.y) };
   if (isWalkable(nav, rounded.x, rounded.y)) return rounded;
   const candidates: Cell[] = [
@@ -76,23 +96,29 @@ function standingCell(nav: NavGrid, pos: Cell): Cell {
 /**
  * Set up the current step: find the path for a walk, or start the clock on a
  * work step. Returns false if the worker cannot get there (layout problem);
- * the step is then retried every tick.
+ * the worker is then 'blocked' and the step is retried every tick, so the
+ * task carries on as soon as the way is clear again.
  */
 export function beginStep(state: GameState, ctx: SimContext, worker: Worker, task: Task): boolean {
   const step = task.steps[task.stepIdx];
   if (step.op === 'walk') {
     const nav = navOf(state, ctx);
     const from = standingCell(nav, worker.pos);
-    const path = findPath(nav, from, step.goals);
+    // Goal cells are worked out now, not when the task was planned: the floor
+    // plan may have changed since.
+    const path = findPath(nav, from, targetCells(state, nav, step.to));
     if (!path) {
-      if (worker.status !== 'idle') emit(ctx, { type: 'worker-blocked', tick: state.tick, workerId: worker.id });
-      worker.status = 'idle';
+      if (worker.status !== 'blocked') {
+        worker.status = 'blocked';
+        emit(ctx, { type: 'worker-blocked', tick: state.tick, workerId: worker.id });
+      }
       return false;
     }
     const onCell = worker.pos.x === from.x && worker.pos.y === from.y;
     worker.path = onCell ? path : [from, ...path];
   } else {
-    worker.workLeft = stepMinutes(state, worker, step);
+    worker.workTotal = stepMinutes(state, worker, step);
+    worker.workLeft = worker.workTotal;
   }
   task.stepStarted = true;
   return true;
@@ -118,6 +144,8 @@ function orderReady(state: GameState, ctx: SimContext, order: Order | undefined)
 /** Apply the effect of the step the worker has just finished. */
 export function finishStep(state: GameState, ctx: SimContext, worker: Worker, task: Task): void {
   const step = task.steps[task.stepIdx];
+  worker.workLeft = 0;
+  worker.workTotal = 0;
   switch (step.op) {
     case 'walk':
       break;
@@ -231,6 +259,7 @@ export function completeTask(state: GameState, worker: Worker, task: Task): void
   worker.taskId = null;
   worker.path = [];
   worker.workLeft = 0;
+  worker.workTotal = 0;
   const index = state.tasks.indexOf(task);
   if (index >= 0) state.tasks.splice(index, 1);
 }
