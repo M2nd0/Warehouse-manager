@@ -1,0 +1,12 @@
+{
+  // Architecture guard: the simulation (and the data it reads) must compile
+  // without DOM or Node typings. If this project fails to typecheck, something
+  // in src/sim reached for the browser, Node or Three.js.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": [],
+    "jsx": "preserve"
+  },
+  "include": ["src/sim", "src/data", "src/save/serialize.ts"]
+}

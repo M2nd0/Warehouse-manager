@@ -1,0 +1,39 @@
+# Warehouse Manager
+
+3D web warehouse management simulator. Design doc: docs/GDD.md (source of truth for game rules and numbers).
+
+## Stack
+TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game framework.
+
+## Commands
+- `npm run dev` – dev server (the sim is exposed as `window.sim` in dev builds)
+- `npm run test` – Vitest (`tests/`, runs in Node)
+- `npm run typecheck` – app + a second pass that compiles `src/sim` and `src/data` without DOM/Node typings
+- `npm run lint` – ESLint (also forbids Three.js/UI imports, `Math.random` and `Date.now` inside `src/sim`)
+- `npm run build` – typecheck + production build
+- `npm run sim -- [days] [seed] [workers]` – headless run that prints the daily reports
+
+## Architecture rules (non-negotiable)
+- `src/sim/` is pure TypeScript: no DOM, no Three.js imports. Deterministic given seed + inputs.
+- `src/render/` and `src/ui/` only READ GameState; all mutations go through `sim.step()` or `sim.dispatch(action)`.
+- One tick = one in-game minute. Never tie simulation to requestAnimationFrame delta.
+- Every system in `src/sim/systems/` exports `step(state, ctx)`; order is defined in `src/sim/index.ts`.
+- Every incident has: cause (string key), probability function, 2-3 player choices, consequences. See GDD section "Realistické problémy".
+- Game numbers (prices, speeds, probabilities) live in `src/data/balance.ts`, never inline.
+- All user-facing strings in `src/data/i18n/en.json`.
+
+## Simulation conventions
+- Money is integer cents everywhere in GameState (`eur(1600)` in balance.ts); cash only changes through `post()` in `src/sim/economy/ledger.ts`, so cash always equals starting cash + ledger.
+- GameState is plain data (objects, arrays, Maps). Anything derived (navigation grid, per-tick time flags) lives in `SimContext` and is rebuilt on load. IDs come from `state.nextId`, randomness from `state.rng` via `src/sim/rng.ts`.
+- No `Math.exp/log/pow/sin` in the sim: only arithmetic that is bit-identical across JS engines.
+- Grid: cell (x, y) is a 1 m square, x along the hall width, y along its depth; in the 3D scene grid x → X and grid y → Z.
+- Workers move several cells per tick; a tick's minute is split exactly between walking and work steps (`src/sim/systems/agents.ts`).
+
+## Workflow
+- Write a Vitest test for every sim system before or with the implementation.
+- Run `npm run test` and `npm run typecheck` before declaring a task done.
+- Keep PRs scoped to one milestone from docs/GDD.md.
+- Commit messages: `M<n>: <what>`.
+
+## Performance budget
+60 fps with 2000 pallet slots and 30 agents on integrated GPU. Use InstancedMesh for racks, pallets, boxes.
