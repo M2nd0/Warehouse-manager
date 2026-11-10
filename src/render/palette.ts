@@ -16,6 +16,11 @@ export const palette = {
   truckBed: 0x4a5057,
   truckGlass: 0x27313a,
   tyre: 0x1f2226,
+  /** Building feedback: fine / GDD orange under 3.5 m / GDD red under 2.7 m. */
+  buildOk: 0x7fb77e,
+  buildTight: 0xe07b39,
+  buildNarrow: 0xd64545,
+  selection: 0xf2c230,
   /** Warm white daylight. */
   sunLight: 0xfff6e8,
   skyLight: 0xf4f7fa,

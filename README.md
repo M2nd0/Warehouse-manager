@@ -7,7 +7,7 @@ Design document: [docs/GDD.md](docs/GDD.md). Working rules for the codebase: [CL
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173 (add ?seed=42 for a fixed game)
+npm run dev        # http://localhost:5173 (?seed=42 for a fixed game, ?starter for ready-made racks)
 npm run sim -- 30  # 30 in-game days headless, daily reports in the console
 npm run test
 ```
@@ -28,3 +28,4 @@ tests/       Vitest, runs the simulation headless
 - **M0** – project skeleton, empty 30 × 10 m hall, orbit camera, HUD
 - **M1** – phase 1 simulation without graphics: trucks → pallets → locations → orders → dispatch, daily report
 - **M2** – the state rendered: racks and pallets (instanced), workers walking their routes, pallet jack, trucks at the dock
+- **M3** – building and taking down racks with live aisle widths, four panels (operations, people, clients, finance), a context card for anything clicked in the scene

@@ -26,6 +26,9 @@ const FORKS_CENTRE = 0.72;
 const FORK_LIFT = 0.1;
 
 export interface WorkerLayer {
+  /** Where every worker in the building and every vehicle is drawn this frame. */
+  readonly workers: ReadonlyMap<Id, Placement>;
+  readonly vehicles: ReadonlyMap<Id, Placement>;
   /**
    * Draw workers and vehicles. Fills `moving` with the placement of every
    * pallet that is riding on a jack.
@@ -75,6 +78,8 @@ export function createWorkerLayer(add: (mesh: InstancedMesh) => void): WorkerLay
   const facing = new Map<Id, number>();
   const parkedFacing = new Map<Id, number>();
   const inHand = new Map<Id, Placement>();
+  const workerPlaces = new Map<Id, Placement>();
+  const vehiclePlaces = new Map<Id, Placement>();
 
   const matrix = new Matrix4();
   const position = new Vector3();
@@ -84,7 +89,11 @@ export function createWorkerLayer(add: (mesh: InstancedMesh) => void): WorkerLay
   const vest = new Color();
 
   return {
+    workers: workerPlaces,
+    vehicles: vehiclePlaces,
     sync(state, alpha, dt, moving) {
+      workerPlaces.clear();
+      vehiclePlaces.clear();
       figures = ensureCapacity(figures, state.workers.length);
       vests = ensureCapacity(vests, state.workers.length);
       jacks = ensureCapacity(jacks, state.vehicles.length);
@@ -112,6 +121,7 @@ export function createWorkerLayer(add: (mesh: InstancedMesh) => void): WorkerLay
         figures.setMatrixAt(count, matrix);
         vests.setMatrixAt(count, matrix);
         vests.setColorAt(count, vest.set(vestColors[worker.role]));
+        workerPlaces.set(worker.id, { x, y: 0, z, angle });
         count++;
 
         if (worker.vehicleId !== null) {
@@ -152,6 +162,7 @@ export function createWorkerLayer(add: (mesh: InstancedMesh) => void): WorkerLay
         quaternion.setFromAxisAngle(UP, place.angle);
         matrix.compose(position.set(place.x, place.y, place.z), quaternion, scale);
         jacks.setMatrixAt(vehicles++, matrix);
+        vehiclePlaces.set(vehicle.id, place);
       }
       jacks.count = vehicles;
       jacks.instanceMatrix.needsUpdate = true;

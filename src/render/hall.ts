@@ -167,6 +167,7 @@ function buildDockAprons(hall: Hall): Group {
     if (dock.side === 'E') plate.position.set(hall.width + out, 0.03, centre);
     if (dock.side === 'N') plate.position.set(centre, 0.03, -out);
     if (dock.side === 'S') plate.position.set(centre, 0.03, hall.depth + out);
+    plate.userData.dockId = dock.id;
     group.add(plate);
   }
   return group;

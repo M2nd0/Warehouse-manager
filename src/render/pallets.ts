@@ -16,6 +16,11 @@ const PALLET_HEIGHT = 0.15;
 const LOAD_HEIGHT = 1.05;
 
 export interface PalletLayer {
+  /** The instanced meshes and the pallet id of each instance, for picking. */
+  readonly meshes: () => InstancedMesh[];
+  readonly ids: Id[];
+  /** Where each drawn pallet stands this frame, and how high its load is. */
+  readonly placed: ReadonlyMap<Id, Placement & { height: number }>;
   /**
    * `moving` says where pallets that are not in a location are right now
    * (on a truck, on a pallet jack); those missing from it are not drawn.
@@ -56,6 +61,8 @@ export function createPalletLayer(add: (mesh: InstancedMesh) => void): PalletLay
 
   const rackOrientation = new Map<Id, Orientation>();
   let layout = -1;
+  const ids: Id[] = [];
+  const placed = new Map<Id, Placement & { height: number }>();
 
   const matrix = new Matrix4();
   const position = new Vector3();
@@ -64,7 +71,12 @@ export function createPalletLayer(add: (mesh: InstancedMesh) => void): PalletLay
   const UP = new Vector3(0, 1, 0);
 
   return {
+    meshes: () => [bases, loads],
+    ids,
+    placed,
     sync(state, moving) {
+      ids.length = 0;
+      placed.clear();
       if (state.layoutVersion !== layout) {
         layout = state.layoutVersion;
         rackOrientation.clear();
@@ -102,6 +114,8 @@ export function createPalletLayer(add: (mesh: InstancedMesh) => void): PalletLay
         matrix.compose(position.set(x, y + PALLET_HEIGHT, z), quaternion, scale.set(1, fill * LOAD_HEIGHT, 1));
         loads.setMatrixAt(count, matrix);
         loads.setColorAt(count, colorOf(state, pallet.skuId));
+        ids.push(pallet.id);
+        placed.set(pallet.id, { x, y, z, angle, height: PALLET_HEIGHT + fill * LOAD_HEIGHT });
         count++;
       }
 

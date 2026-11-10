@@ -4,7 +4,9 @@ import { createView } from './render/scene';
 import { createSim } from './sim';
 import type { SimEvent } from './sim';
 import { mountUi } from './ui';
+import { createController } from './ui/controller';
 import { formatDailyReport } from './ui/reportText';
+import { createStore } from './ui/store';
 
 /**
  * Game loop: sim.step() × N → render.sync(state) → ui.sync(state).
@@ -23,16 +25,18 @@ const canvas = document.querySelector<HTMLCanvasElement>('#scene');
 const uiRoot = document.querySelector<HTMLElement>('#ui');
 if (!canvas || !uiRoot) throw new Error('index.html is missing #scene or #ui');
 
+// ?seed=42 fixes the game; ?starter begins with a ready-made rack layout.
 const params = new URLSearchParams(window.location.search);
 const seed = Number(params.get('seed')) || Date.now() >>> 0;
-const sim = createSim({ seed });
+const starter = params.has('starter');
+const sim = createSim({ seed, racks: starter ? garageStarterRacks : [] });
 
-// Until the building tools exist (M3) the game starts with a ready-made layout.
-for (const rack of garageStarterRacks) sim.dispatch({ type: 'build-rack', ...rack });
-
-const loop = { speed: balance.time.speeds[0] as number, paused: false };
+// An empty hall starts paused: lay out the racks first, then let the day begin.
+const loop = { speed: balance.time.speeds[0] as number, paused: !starter };
 const view = createView(canvas, sim.state);
-const ui = mountUi(uiRoot, {
+const store = createStore();
+const controller = createController(canvas, sim, view, store);
+const ui = mountUi(uiRoot, store, controller.actions, {
   onSpeed(speed) {
     loop.speed = speed;
     loop.paused = false;
@@ -43,7 +47,7 @@ const ui = mountUi(uiRoot, {
 });
 
 // Space pauses, wherever the focus is. Both key events are cancelled so that
-// a focused speed button is not "clicked" by the same key press.
+// a focused button is not "clicked" by the same key press.
 window.addEventListener('keydown', (event) => {
   if (event.code !== 'Space') return;
   event.preventDefault();
@@ -74,6 +78,7 @@ function frame(now: number): void {
     for (let i = 0; i < ticks; i++) handle(sim.step());
   }
 
+  controller.update(sim.state);
   // `due` is now the fraction of the next tick that has passed: the view uses
   // it to animate between ticks. It stands still while the game is paused.
   const simSeconds = loop.paused ? 0 : dt * Math.min(loop.speed, MAX_ANIMATION_SPEED);
@@ -84,5 +89,5 @@ function frame(now: number): void {
 }
 
 console.info(`Warehouse Manager — seed ${seed}`);
-if (import.meta.env.DEV) Object.assign(window, { sim, view });
+if (import.meta.env.DEV) Object.assign(window, { sim, view, store });
 requestAnimationFrame(frame);

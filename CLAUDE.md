@@ -6,7 +6,7 @@
 TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game framework.
 
 ## Commands
-- `npm run dev` – dev server (the sim is exposed as `window.sim` in dev builds)
+- `npm run dev` – dev server; `?seed=42` fixes the game, `?starter` begins with a ready-made rack layout instead of an empty, paused hall. Dev builds expose `window.sim`, `window.view` and `window.store`.
 - `npm run test` – Vitest (`tests/`, runs in Node)
 - `npm run typecheck` – app + a second pass that compiles `src/sim` and `src/data` without DOM/Node typings
 - `npm run lint` – ESLint (also forbids Three.js/UI imports, `Math.random` and `Date.now` inside `src/sim`)
@@ -37,6 +37,13 @@ TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game fram
 - The view runs one tick behind and animates between ticks: `main.ts` passes `alpha` (fraction of the next tick elapsed). Purely cosmetic motion the sim knows nothing about (trucks driving in and out) is advanced by `simSeconds`, which is 0 while paused.
 - Pallets that are not in a location (on a truck bed, on a pallet jack) are placed through the shared `moving` map filled by the truck and worker layers.
 - Maths that needs no Three.js goes in `motion.ts` and gets a Vitest test. In dev, `window.view.stats()` reports draw calls and triangles.
+
+## UI conventions
+- `src/ui/store.ts` holds the state of the interface itself (tool in hand, selection, open panel); it is not saved and the simulation never sees it. `src/ui/controller.ts` turns mouse and keyboard in the 3D view into selections and `sim.dispatch()` calls.
+- Panels and cards are plain functions of `GameView`. Anything they need worked out (truck board, month to date, cash-flow projection, rack contents) is a pure query in `src/sim/queries.ts` with a Vitest test — not logic inside a component.
+- A rule the player must be told about before acting (can a rack go here, how wide are the aisles) is computed by the simulation (`sim.previewRack`) and only drawn by render/UI, so the preview and the action can never disagree.
+- Wording shared between components lives in `src/ui/text.ts`; every string goes through `t()` (typed keys) or `tData()` (keys built from data such as `sku.<id>`).
+- Clicking in the scene: `view.pick()` resolves what is under the cursor to an `EntityRef`; `view.setSelection()` outlines it.
 
 ## Workflow
 - Write a Vitest test for every sim system before or with the implementation.

@@ -88,6 +88,8 @@ function vanGeometry(color: number): BufferGeometry {
 
 interface TruckView {
   mesh: Mesh;
+  /** Bumper to bumper, metres. */
+  length: number;
   /** Order in which the pallets were loaded: decides where each stands on the bed. */
   slots: Map<Id, number>;
   angle: number;
@@ -95,6 +97,10 @@ interface TruckView {
 }
 
 export interface TruckLayer {
+  /** Every truck mesh on screen with the id of its truck, for picking. */
+  meshes(): { mesh: Mesh; id: Id }[];
+  /** Where a truck is drawn and how long it is; null if it is not on screen. */
+  frameOf(id: Id): (Placement & { length: number }) | null;
   /**
    * Draw the trucks. `simSeconds` is the time to animate by (0 while paused).
    * Fills `moving` with the placement of every pallet still on a truck bed.
@@ -128,6 +134,15 @@ export function createTruckLayer(parent: Object3D): TruckLayer {
   };
 
   return {
+    meshes() {
+      return [...views].map(([id, view]) => ({ mesh: view.mesh, id }));
+    },
+    frameOf(id) {
+      const view = views.get(id);
+      if (!view) return null;
+      const { x, z } = view.mesh.position;
+      return { x, y: 0, z, angle: view.angle, length: view.length };
+    },
     sync(state, simSeconds, moving) {
       const waiting = state.trucks
         .filter((t) => t.status === 'waiting')
@@ -155,7 +170,8 @@ export function createTruckLayer(parent: Object3D): TruckLayer {
           const fresh = state.tick - (truck.arrivedTick ?? state.tick) <= FRESH_TICKS;
           mesh.position.copy(place(fresh ? APPROACH_FROM : home));
           parent.add(mesh);
-          view = { mesh, slots: new Map(), angle: facing, leaving: false };
+          const bed = truck.kind === 'pickup' ? 4.6 : bedLength(truck.manifest);
+          view = { mesh, length: bed + 2.1, slots: new Map(), angle: facing, leaving: false };
           truck.cargo.forEach((palletId, i) => view?.slots.set(palletId, i));
           views.set(truck.id, view);
         }

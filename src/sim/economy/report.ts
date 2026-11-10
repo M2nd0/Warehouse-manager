@@ -1,5 +1,5 @@
 import { reachLevels } from '../layout';
-import type { Cents, DailyReport, DayStats, GameState } from '../types';
+import type { Cents, DailyReport, DayStats, GameState, GameView } from '../types';
 
 export function emptyDayStats(): DayStats {
   return {
@@ -24,7 +24,7 @@ export function emptyDayStats(): DayStats {
 }
 
 /** Rack positions the current equipment can serve, and how many are taken. */
-export function storageUse(state: GameState): { used: number; capacity: number } {
+export function storageUse(state: GameView): { used: number; capacity: number } {
   const reach = reachLevels(state);
   let used = 0;
   let capacity = 0;

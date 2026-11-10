@@ -1,7 +1,7 @@
 import { balance } from '../data/balance';
 import { NEIGHBOURS } from './nav';
 import type { NavGrid } from './nav';
-import type { Cell, GameState, Id, LocId, Location, Orientation, Rack, Vec2, Zone } from './types';
+import type { Cell, GameState, GameView, Id, LocId, Location, Orientation, Rack, Vec2, Zone } from './types';
 
 export interface RackPlacement {
   x: number;
@@ -243,7 +243,7 @@ export function addRack(state: GameState, placement: RackPlacement): Rack {
 }
 
 /** Why a rack cannot be taken down, or null if it can (GDD: empty it first). */
-export function checkDemolition(state: GameState, rackId: Id): DemolitionError | null {
+export function checkDemolition(state: GameView, rackId: Id): DemolitionError | null {
   if (!state.racks.some((r) => r.id === rackId)) return 'unknown-rack';
   for (const loc of state.locations.values()) {
     if (loc.rackId === rackId && (loc.palletId !== null || loc.reservedBy !== null)) return 'rack-in-use';
@@ -263,7 +263,7 @@ export function removeRack(state: GameState, rackId: Id): void {
 }
 
 /** Highest rack level the vehicles on site can serve. */
-export function reachLevels(state: GameState): number {
+export function reachLevels(state: GameView): number {
   let reach = 0;
   for (const v of state.vehicles) reach = Math.max(reach, balance.vehicles[v.kind].reachLevels);
   return reach;

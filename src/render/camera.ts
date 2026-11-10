@@ -1,4 +1,4 @@
-import { MOUSE, PerspectiveCamera, Vector3 } from 'three';
+import { MOUSE, PerspectiveCamera, Spherical, Vector3 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GameView } from '../sim/types';
 
@@ -11,6 +11,8 @@ const MIN_DISTANCE = 3;
 /** A manager looks down on the floor: never flatter than about 20° above it. */
 const MAX_POLAR = Math.PI / 2 - 0.35;
 const START_POLAR = Math.PI / 4;
+/** Looking straight down, for laying out racks (GDD: top-down 2D view when building). */
+const TOP_DOWN_POLAR = 0.02;
 const QUARTER_TURN_SECONDS = 0.25;
 /** How far outside the hall the camera target may wander, metres. */
 const TARGET_MARGIN = 12;
@@ -21,6 +23,8 @@ const UP = new Vector3(0, 1, 0);
 
 export interface CameraRig {
   camera: PerspectiveCamera;
+  /** Swing up to look straight down, or back to the angle it was at before. */
+  setTopDown(on: boolean): void;
   update(dtSeconds: number): void;
   resize(width: number, height: number): void;
   dispose(): void;
@@ -51,6 +55,15 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
   const held = new Set<string>();
   /** Radians of Q/E rotation still to play out. */
   let turnLeft = 0;
+  /** Tilt the camera is swinging towards, if any, and the tilt to return to. */
+  let polarGoal: number | null = null;
+  let polarBefore = START_POLAR;
+  const spherical = new Spherical();
+  // Taking the camera by hand ends the swing.
+  const onPointerDown = (): void => {
+    polarGoal = null;
+  };
+  dom.addEventListener('pointerdown', onPointerDown);
 
   const isTyping = (event: KeyboardEvent): boolean => {
     const el = event.target as HTMLElement | null;
@@ -101,6 +114,16 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
       camera.position.copy(controls.target).add(offset);
     }
 
+    if (polarGoal !== null) {
+      offset.subVectors(camera.position, controls.target);
+      spherical.setFromVector3(offset);
+      const next = spherical.phi + (polarGoal - spherical.phi) * (1 - Math.exp(-10 * dt));
+      const arrived = Math.abs(next - polarGoal) < 0.003;
+      spherical.phi = arrived ? polarGoal : next;
+      if (arrived) polarGoal = null;
+      camera.position.copy(controls.target).add(offset.setFromSpherical(spherical));
+    }
+
     controls.update();
 
     // Keep the hall in sight.
@@ -116,6 +139,14 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
 
   return {
     camera,
+    setTopDown(on) {
+      if (on) {
+        polarBefore = Math.max(0.35, controls.getPolarAngle());
+        polarGoal = TOP_DOWN_POLAR;
+      } else {
+        polarGoal = polarBefore;
+      }
+    },
     update,
     resize(width, height) {
       camera.aspect = width / Math.max(1, height);
@@ -125,6 +156,7 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
+      dom.removeEventListener('pointerdown', onPointerDown);
       controls.dispose();
     },
   };
