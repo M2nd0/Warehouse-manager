@@ -34,7 +34,7 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
   // Start on the whole hall plus the strip of yard where trucks stand.
   const centre = { x: hall.width / 2 - YARD_IN_VIEW / 2, z: hall.depth / 2 };
   controls.target.set(centre.x, 0, centre.z);
-  const distance = (span + YARD_IN_VIEW) * 1.05;
+  const distance = (span + YARD_IN_VIEW) * 1.13;
   camera.position.set(centre.x, distance * Math.cos(START_POLAR), centre.z + distance * Math.sin(START_POLAR));
 
   controls.enableDamping = true;

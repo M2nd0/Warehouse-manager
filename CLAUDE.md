@@ -32,6 +32,12 @@ TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game fram
 - `sim.dispatch(action)` applies an action between ticks with the same context systems get (it can `post()` money and `emit()` events) and returns those events; a refused action changes nothing.
 - A task is a list of steps; `walk` steps name a target (`loc`, `dock`, `station`, `vehicle`, `cell`) and the path is found when the step starts. Whatever a task claims (pallet, slot, units, vehicle) is reserved when it is planned.
 
+## Render conventions
+- One layer per kind of thing in `src/render/` (`racks.ts`, `pallets.ts`, `workers.ts`, `trucks.ts`); `scene.ts` calls their `sync(state, …)` every frame. Anything drawn many times is an `InstancedMesh` (helpers in `instancing.ts`); models are merged from coloured boxes (`parts.ts`), colours come from `palette.ts`.
+- The view runs one tick behind and animates between ticks: `main.ts` passes `alpha` (fraction of the next tick elapsed). Purely cosmetic motion the sim knows nothing about (trucks driving in and out) is advanced by `simSeconds`, which is 0 while paused.
+- Pallets that are not in a location (on a truck bed, on a pallet jack) are placed through the shared `moving` map filled by the truck and worker layers.
+- Maths that needs no Three.js goes in `motion.ts` and gets a Vitest test. In dev, `window.view.stats()` reports draw calls and triangles.
+
 ## Workflow
 - Write a Vitest test for every sim system before or with the implementation.
 - Run `npm run test` and `npm run typecheck` before declaring a task done.

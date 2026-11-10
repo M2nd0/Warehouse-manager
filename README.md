@@ -27,3 +27,4 @@ tests/       Vitest, runs the simulation headless
 
 - **M0** – project skeleton, empty 30 × 10 m hall, orbit camera, HUD
 - **M1** – phase 1 simulation without graphics: trucks → pallets → locations → orders → dispatch, daily report
+- **M2** – the state rendered: racks and pallets (instanced), workers walking their routes, pallet jack, trucks at the dock
