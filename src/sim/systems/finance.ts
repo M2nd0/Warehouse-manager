@@ -1,0 +1,88 @@
+import { balance } from '../../data/balance';
+import { emit } from '../context';
+import type { SimContext } from '../context';
+import { post } from '../economy/ledger';
+import { buildReport, emptyDayStats } from '../economy/report';
+import type { Cents, Client, ClientId, GameState } from '../types';
+
+const { daysPerMonth, daysPerWeek } = balance.time;
+
+/**
+ * Finance: rent on the 1st, invoices collected when due, and the end-of-day
+ * close (storage fees, wages, month-end invoicing, the daily report).
+ */
+export function step(state: GameState, ctx: SimContext): void {
+  if (ctx.dayStart) {
+    if (state.day % daysPerMonth === 0) post(state, ctx, 'rent', -balance.rent.garagePerMonth);
+    collectInvoices(state, ctx);
+  }
+  if (ctx.dayEnd) closeDay(state, ctx);
+}
+
+function collectInvoices(state: GameState, ctx: SimContext): void {
+  for (const invoice of state.invoices) {
+    if (invoice.paid || invoice.dueDay > state.day) continue;
+    invoice.paid = true;
+    post(state, ctx, 'invoice', invoice.amount, invoice.clientId);
+  }
+}
+
+/** What a client owes for the services delivered since the last invoice. */
+export function unbilledAmount(client: Client): Cents {
+  const { contract, unbilled } = client;
+  return (
+    Math.round((unbilled.palletDays * contract.storageFeePerPalletMonth) / daysPerMonth) +
+    unbilled.palletsReceived * contract.receivingFeePerPallet +
+    unbilled.lines * contract.pickFeePerLine
+  );
+}
+
+function closeDay(state: GameState, ctx: SimContext): void {
+  // Storage is billed per pallet per day in a rack.
+  const stored = new Map<ClientId, number>();
+  for (const pallet of state.pallets.values()) {
+    if (pallet.status === 'stored') stored.set(pallet.clientId, (stored.get(pallet.clientId) ?? 0) + 1);
+  }
+  for (const client of state.clients) {
+    const pallets = stored.get(client.id) ?? 0;
+    client.unbilled.palletDays += pallets;
+    state.today.revenue += Math.round((pallets * client.contract.storageFeePerPalletMonth) / daysPerMonth);
+  }
+
+  // GDD: wages are paid weekly.
+  let wagesToday = 0;
+  let wagesWeek = 0;
+  for (const worker of state.workers) {
+    wagesToday += Math.round(worker.wagePerMonth / daysPerMonth);
+    wagesWeek += Math.round((worker.wagePerMonth * daysPerWeek) / daysPerMonth);
+  }
+  if ((state.day + 1) % daysPerWeek === 0 && wagesWeek > 0) post(state, ctx, 'wages', -wagesWeek);
+
+  // GDD: clients are invoiced monthly and pay 30 days later.
+  if ((state.day + 1) % daysPerMonth === 0) {
+    for (const client of state.clients) {
+      const amount = unbilledAmount(client);
+      if (amount > 0) {
+        state.invoices.push({
+          id: state.nextId++,
+          clientId: client.id,
+          issuedDay: state.day,
+          dueDay: state.day + balance.invoicing.paymentTermDays,
+          amount,
+          paid: false,
+        });
+      }
+      client.unbilled = { palletDays: 0, palletsReceived: 0, lines: 0 };
+      client.month = { shipped: 0, late: 0, wrong: 0 };
+    }
+  }
+
+  const report = buildReport(state, wagesToday, Math.round(balance.rent.garagePerMonth / daysPerMonth));
+  state.reports.push(report);
+  emit(ctx, { type: 'day-ended', tick: state.tick, report });
+
+  // Start the new day with a clean slate.
+  state.today = emptyDayStats();
+  state.orders = state.orders.filter((o) => o.status !== 'shipped');
+  state.trucks = state.trucks.filter((t) => t.status !== 'done');
+}
