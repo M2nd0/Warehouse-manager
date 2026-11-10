@@ -1,0 +1,164 @@
+:root {
+  --panel: rgba(24, 28, 33, 0.84);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #f1f0ec;
+  --text-dim: #a9afb5;
+  --yellow: #f2c230;
+  --red: #d64545;
+  font-family: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1b2026;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* The overlay lets the pointer through to the canvas except on controls. */
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.hud__group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hud__title {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
+  margin-right: 6px;
+}
+
+.hud__label {
+  color: var(--text-dim);
+}
+
+.hud__value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hud__clock {
+  min-width: 3.2em;
+}
+
+.hud__cash {
+  font-size: 16px;
+}
+
+.hud__cash--negative {
+  color: var(--red);
+}
+
+.speed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 30px;
+  padding: 0 10px;
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.speed:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.speed:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.speed--active {
+  color: #1b2026;
+  background: var(--yellow);
+}
+
+.speed--active:hover {
+  background: var(--yellow);
+}
+
+.speed__pause {
+  width: 10px;
+  height: 12px;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.hint {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .hud__title,
+  .hint {
+    display: none;
+  }
+}
