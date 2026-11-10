@@ -74,7 +74,7 @@ function scheduleDay(state: GameState): void {
     if (!client.active) continue;
     const load = planDelivery(state, client);
     if (load.length === 0) continue;
-    const window = {
+    const timeWindow = {
       start: midnight + client.profile.deliveryWindow.start,
       end: midnight + client.profile.deliveryWindow.end,
     };
@@ -92,7 +92,7 @@ function scheduleDay(state: GameState): void {
         status: 'inbound',
         taskId: null,
         orderId: null,
-        arrivedTick: window.start,
+        arrivedTick: timeWindow.start,
         expiryDay: sku.shelfLifeDays === null ? null : state.day + sku.shelfLifeDays,
       };
       state.pallets.set(pallet.id, pallet);
@@ -101,8 +101,8 @@ function scheduleDay(state: GameState): void {
     newTruck(state, {
       kind: 'inbound',
       clientId: client.id,
-      window,
-      etaTick: window.start + randomInt(state, window.end - window.start),
+      window: timeWindow,
+      etaTick: timeWindow.start + randomInt(state, timeWindow.end - timeWindow.start),
       departureTick: null,
       cargo,
       manifest: cargo.length,

@@ -111,11 +111,6 @@ export function addOrder(
   return order;
 }
 
-/** Nobody ever picks the wrong item (keeps scenario tests exact). */
-export function perfectPickers(state: GameState): void {
-  for (const worker of state.workers) worker.stats.accuracy = 5;
-}
-
 /**
  * Consistency rules that must hold after every tick. Returns the list of
  * violations (empty when all is well).
