@@ -45,6 +45,17 @@ export const balance = {
     positions: 3,
     levels: 3,
     capacityKg: 1000,
+    /** Price of one bay, and the share returned when it is taken down. */
+    price: eur(150),
+    demolishRefund: 0.5,
+  },
+
+  build: {
+    /** GDD: aisles under 2.7 m are shown red, under 3.5 m orange. Metres. */
+    aisleNarrowBelow: 2.7,
+    aisleTightBelow: 3.5,
+    /** How far from a rack face an aisle is measured. */
+    aisleMeasureUpTo: 6,
   },
 
   floorSlot: {

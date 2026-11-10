@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { balance } from '../src/data/balance';
 import { garageStarterRacks } from '../src/data/halls';
 import { createSim } from '../src/sim';
 import { storageUse } from '../src/sim/economy/report';
@@ -100,10 +101,10 @@ describe('hall and racks', () => {
     const sim = createSim();
     const built = sim.dispatch({ type: 'build-rack', x: 10, y: 4, orientation: 'h' });
     const rackId = sim.state.racks[0].id;
-    expect(built).toEqual({ ok: true, events: [{ type: 'rack-built', tick: 0, rackId }] });
-    expect(sim.dispatch({ type: 'demolish-rack', rackId })).toEqual({
+    expect(built).toMatchObject({ ok: true, events: [{ type: 'money' }, { type: 'rack-built', tick: 0, rackId }] });
+    expect(sim.dispatch({ type: 'demolish-rack', rackId })).toMatchObject({
       ok: true,
-      events: [{ type: 'rack-demolished', tick: 0, rackId }],
+      events: [{ type: 'money' }, { type: 'rack-demolished', tick: 0, rackId }],
     });
     // Events of an action are handed back by dispatch, not by the next step.
     expect(sim.step().some((e) => e.type === 'rack-built' || e.type === 'rack-demolished')).toBe(false);
@@ -116,6 +117,14 @@ describe('hall and racks', () => {
     const above = sim.state.locations.get('E-10-2-1');
     expect(above?.cell).toEqual(floor?.cell);
     expect(above?.cell).not.toBe(floor?.cell);
+  });
+
+  it('a new game can start with racks already standing, free of charge', () => {
+    const sim = createSim({ racks: [{ x: 10, y: 4, orientation: 'h' }, { x: 20, y: 2, orientation: 'v' }] });
+    expect(sim.state.racks).toHaveLength(2);
+    expect(sim.state.cash).toBe(balance.start.cash);
+    expect(sim.state.ledger).toHaveLength(0);
+    expect(sim.state.locations.has('E-10-1-1')).toBe(true);
   });
 
   it('bumps the layout version so caches rebuild', () => {

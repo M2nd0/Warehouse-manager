@@ -16,8 +16,7 @@ const days = Number(daysArg ?? 3);
 const seed = Number(seedArg ?? 1);
 const workers = workersArg === undefined ? undefined : Number(workersArg);
 
-const sim = createSim({ seed, workers });
-for (const rack of garageStarterRacks) sim.dispatch({ type: 'build-rack', ...rack });
+const sim = createSim({ seed, workers, racks: garageStarterRacks });
 
 const started = performance.now();
 for (const event of sim.run(days * TICKS_PER_DAY)) {

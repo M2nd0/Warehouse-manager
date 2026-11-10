@@ -173,7 +173,6 @@ function leave(state: GameState, ctx: SimContext, truck: Truck): void {
     if (bay) bay.truckId = null;
   }
   truck.status = 'done';
-  truck.dockId = null;
   truck.leftTick = state.tick;
   emit(ctx, { type: 'truck-left', tick: state.tick, truckId: truck.id });
 }

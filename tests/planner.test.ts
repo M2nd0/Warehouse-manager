@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { balance } from '../src/data/balance';
 import type { Sim } from '../src/sim';
+import { addRack } from '../src/sim/layout';
 import { createVehicle } from '../src/sim/state';
 import * as planner from '../src/sim/systems/planner';
 import type { GameState, Pallet, Truck } from '../src/sim/types';
@@ -233,11 +234,14 @@ describe('task planner', () => {
   it('leaves alone what nobody can reach', () => {
     const sim = morning();
     const { state } = sim;
-    // Wall the worker's corner off from the rest of the hall.
-    for (const y of [1, 4]) expect(sim.dispatch({ type: 'build-rack', x: 5, y, orientation: 'v' })).toMatchObject({ ok: true });
-    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 7, orientation: 'v' })).toEqual({ ok: false, error: 'occupied' });
-    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 7, orientation: 'h' })).toMatchObject({ ok: true });
-    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 8, orientation: 'h' })).toMatchObject({ ok: true });
+    // Wall the worker's corner off from the rest of the hall. The building tool
+    // refuses to do that (it would cut off a receiving slot), so the racks are
+    // forced in behind its back.
+    expect(sim.dispatch({ type: 'build-rack', x: 5, y: 1, orientation: 'v' })).toEqual({ ok: false, error: 'blocks-access' });
+    addRack(state, { x: 5, y: 1, orientation: 'v' });
+    addRack(state, { x: 5, y: 4, orientation: 'v' });
+    addRack(state, { x: 5, y: 7, orientation: 'h' });
+    addRack(state, { x: 5, y: 8, orientation: 'h' });
     addPallet(state, 'ES-02', 'A-27-1-3');
     addOrder(state, 'eshop', [['ES-02', 1]], at(0, 15));
     plan(state);

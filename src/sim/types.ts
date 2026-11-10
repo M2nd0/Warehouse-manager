@@ -255,6 +255,7 @@ export interface Truck {
   /** Fixed departure (pickup only). */
   departureTick: number | null;
   status: TruckStatus;
+  /** Dock it stands at, or stood at before it left. */
   dockId: Id | null;
   /** Pallets still on board. */
   cargo: Id[];
@@ -384,7 +385,9 @@ export type LedgerKind =
   | 'invoice'
   | 'penalty-late'
   | 'penalty-error'
-  | 'demurrage';
+  | 'demurrage'
+  /** Building and taking down racks (a refund is a positive entry). */
+  | 'construction';
 
 export interface LedgerEntry {
   tick: number;

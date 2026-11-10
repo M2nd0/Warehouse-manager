@@ -6,7 +6,8 @@ import type { HallSpec } from '../data/halls';
 import { skuCatalog } from '../data/skus';
 import { workerNames } from '../data/workers';
 import { emptyDayStats } from './economy/report';
-import { floorLocId } from './layout';
+import { addRack, floorLocId } from './layout';
+import type { RackPlacement } from './layout';
 import { seedRng } from './rng';
 import type { Client, ClientId, GameState, Vehicle, VehicleKind, Worker } from './types';
 
@@ -19,6 +20,8 @@ export interface NewGameOptions {
   workers?: number;
   /** Clients with a running contract (default: all in the catalogue). */
   clients?: ClientId[];
+  /** Racks already standing when the game starts (default: none — the player builds). */
+  racks?: RackPlacement[];
 }
 
 function buildHall(state: GameState, spec: HallSpec): void {
@@ -152,6 +155,7 @@ export function createGame(options: NewGameOptions = {}): GameState {
   };
 
   buildHall(state, garage);
+  for (const rack of options.racks ?? []) addRack(state, rack);
 
   const clientIds = options.clients ?? clientCatalog.map((c) => c.id);
   for (const spec of clientCatalog) {

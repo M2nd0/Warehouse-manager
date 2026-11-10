@@ -1,7 +1,9 @@
-import { emit } from './context';
+import { balance } from '../data/balance';
+import { emit, navOf } from './context';
 import type { SimContext } from './context';
+import { post } from './economy/ledger';
 import type { SimEvent } from './events';
-import { addRack, checkRackPlacement, removeRack } from './layout';
+import { addRack, checkDemolition, previewRack, removeRack } from './layout';
 import type { DemolitionError, PlacementError } from './layout';
 import type { GameState, Id, Orientation } from './types';
 
@@ -15,7 +17,7 @@ export type Action =
   | { type: 'build-rack'; x: number; y: number; orientation: Orientation }
   | { type: 'demolish-rack'; rackId: Id };
 
-export type ActionError = PlacementError | DemolitionError;
+export type ActionError = PlacementError | DemolitionError | 'not-enough-cash';
 
 export type ActionResult = { ok: true; events: SimEvent[] } | { ok: false; error: ActionError };
 
@@ -23,15 +25,20 @@ export type ActionResult = { ok: true; events: SimEvent[] } | { ok: false; error
 export function applyAction(state: GameState, ctx: SimContext, action: Action): ActionError | null {
   switch (action.type) {
     case 'build-rack': {
-      const error = checkRackPlacement(state, action);
+      const { error } = previewRack(state, navOf(state, ctx), action);
       if (error) return error;
+      if (state.cash < balance.rack.price) return 'not-enough-cash';
       const rack = addRack(state, action);
+      post(state, ctx, 'construction', -balance.rack.price);
       emit(ctx, { type: 'rack-built', tick: state.tick, rackId: rack.id });
       return null;
     }
     case 'demolish-rack': {
-      const error = removeRack(state, action.rackId);
+      const error = checkDemolition(state, action.rackId);
       if (error) return error;
+      removeRack(state, action.rackId);
+      const refund = Math.round(balance.rack.price * balance.rack.demolishRefund);
+      if (refund > 0) post(state, ctx, 'construction', refund);
       emit(ctx, { type: 'rack-demolished', tick: state.tick, rackId: action.rackId });
       return null;
     }

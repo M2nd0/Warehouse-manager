@@ -1,8 +1,10 @@
 import { applyAction } from './actions';
 import type { Action, ActionResult } from './actions';
-import { createContext } from './context';
+import { createContext, navOf } from './context';
 import type { SimContext } from './context';
 import type { SimEvent } from './events';
+import { previewRack } from './layout';
+import type { RackPlacement, RackPreview } from './layout';
 import { createGame } from './state';
 import type { NewGameOptions } from './state';
 import * as agents from './systems/agents';
@@ -32,6 +34,8 @@ export interface Sim {
   run(ticks: number): SimEvent[];
   /** Apply a player action now, between ticks. Returns what happened, or why not. */
   dispatch(action: Action): ActionResult;
+  /** What building a rack here would mean; changes nothing. */
+  previewRack(placement: RackPlacement): RackPreview;
 }
 
 /**
@@ -74,6 +78,9 @@ function wrap(state: GameState): Sim {
       const error = applyAction(state, ctx, action);
       return error ? { ok: false, error } : { ok: true, events: ctx.events };
     },
+    previewRack(placement) {
+      return previewRack(state, navOf(state, ctx), placement);
+    },
   };
 }
 
@@ -89,6 +96,7 @@ export function resumeSim(state: GameState): Sim {
 
 export type { Action, ActionError, ActionResult } from './actions';
 export type { SimEvent, SimEventType } from './events';
+export type { AisleInfo, AisleRating, PlacementError, RackPlacement, RackPreview } from './layout';
 export type { NewGameOptions } from './state';
 export { SAVE_VERSION } from './state';
 export * from './types';
