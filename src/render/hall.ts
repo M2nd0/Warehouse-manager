@@ -87,6 +87,7 @@ function buildWalls(hall: Hall): Group {
     if (side === 'S') mesh.position.set(mid, height / 2, hall.depth + offset);
     if (side === 'W') mesh.position.set(-offset, height / 2, mid);
     if (side === 'E') mesh.position.set(hall.width + offset, height / 2, mid);
+    mesh.castShadow = true;
     group.add(mesh);
   };
 
@@ -181,6 +182,7 @@ export function buildHall(hall: Hall): Group {
   );
   yard.rotation.x = -Math.PI / 2;
   yard.position.set(hall.width / 2, -0.03, hall.depth / 2);
+  yard.receiveShadow = true;
   group.add(yard);
 
   const floor = new Mesh(
@@ -189,6 +191,7 @@ export function buildHall(hall: Hall): Group {
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(hall.width / 2, 0, hall.depth / 2);
+  floor.receiveShadow = true;
   group.add(floor);
 
   group.add(buildGrid(hall));

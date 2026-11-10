@@ -13,7 +13,9 @@ const MAX_POLAR = Math.PI / 2 - 0.35;
 const START_POLAR = Math.PI / 4;
 const QUARTER_TURN_SECONDS = 0.25;
 /** How far outside the hall the camera target may wander, metres. */
-const TARGET_MARGIN = 4;
+const TARGET_MARGIN = 12;
+/** Width of yard west of the hall that the opening view takes in, metres. */
+const YARD_IN_VIEW = 8;
 
 const UP = new Vector3(0, 1, 0);
 
@@ -29,18 +31,16 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
   const controls = new OrbitControls(camera, dom);
   const span = Math.max(hall.width, hall.depth);
 
-  controls.target.set(hall.width / 2, 0, hall.depth / 2);
-  const distance = span * 1.25;
-  camera.position.set(
-    hall.width / 2,
-    distance * Math.cos(START_POLAR),
-    hall.depth / 2 + distance * Math.sin(START_POLAR),
-  );
+  // Start on the whole hall plus the strip of yard where trucks stand.
+  const centre = { x: hall.width / 2 - YARD_IN_VIEW / 2, z: hall.depth / 2 };
+  controls.target.set(centre.x, 0, centre.z);
+  const distance = (span + YARD_IN_VIEW) * 1.05;
+  camera.position.set(centre.x, distance * Math.cos(START_POLAR), centre.z + distance * Math.sin(START_POLAR));
 
   controls.enableDamping = true;
   controls.dampingFactor = 0.12;
   controls.minDistance = MIN_DISTANCE;
-  controls.maxDistance = span * 2.5;
+  controls.maxDistance = span * 3;
   controls.minPolarAngle = 0;
   controls.maxPolarAngle = MAX_POLAR;
   controls.screenSpacePanning = false;

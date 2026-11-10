@@ -16,6 +16,8 @@ import { formatDailyReport } from './ui/reportText';
 
 /** Safety valve: never try to catch up more than this in one frame. */
 const MAX_TICKS_PER_FRAME = 240;
+/** Cosmetic animation (trucks driving in) speeds up with the game, up to this factor. */
+const MAX_ANIMATION_SPEED = 4;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#scene');
 const uiRoot = document.querySelector<HTMLElement>('#ui');
@@ -25,8 +27,7 @@ const params = new URLSearchParams(window.location.search);
 const seed = Number(params.get('seed')) || Date.now() >>> 0;
 const sim = createSim({ seed });
 
-// Until the building tools exist (M3) the game starts with a ready-made layout,
-// so that the simulation has somewhere to put the goods.
+// Until the building tools exist (M3) the game starts with a ready-made layout.
 for (const rack of garageStarterRacks) sim.dispatch({ type: 'build-rack', ...rack });
 
 const loop = { speed: balance.time.speeds[0] as number, paused: false };
@@ -73,12 +74,15 @@ function frame(now: number): void {
     for (let i = 0; i < ticks; i++) handle(sim.step());
   }
 
-  view.sync(sim.state);
+  // `due` is now the fraction of the next tick that has passed: the view uses
+  // it to animate between ticks. It stands still while the game is paused.
+  const simSeconds = loop.paused ? 0 : dt * Math.min(loop.speed, MAX_ANIMATION_SPEED);
+  view.sync(sim.state, due, dt, simSeconds);
   view.draw(dt);
   ui.sync(sim.state, loop);
   requestAnimationFrame(frame);
 }
 
 console.info(`Warehouse Manager — seed ${seed}`);
-if (import.meta.env.DEV) Object.assign(window, { sim });
+if (import.meta.env.DEV) Object.assign(window, { sim, view });
 requestAnimationFrame(frame);
