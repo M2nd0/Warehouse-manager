@@ -41,10 +41,15 @@ const ui = mountUi(uiRoot, {
   },
 });
 
+// Space pauses, wherever the focus is. Both key events are cancelled so that
+// a focused speed button is not "clicked" by the same key press.
 window.addEventListener('keydown', (event) => {
-  if (event.code !== 'Space' || event.repeat) return;
+  if (event.code !== 'Space') return;
   event.preventDefault();
-  loop.paused = !loop.paused;
+  if (!event.repeat) loop.paused = !loop.paused;
+});
+window.addEventListener('keyup', (event) => {
+  if (event.code === 'Space') event.preventDefault();
 });
 
 function handle(events: SimEvent[]): void {
