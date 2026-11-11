@@ -132,6 +132,11 @@ async function start(): Promise<void> {
         case 'offer-made':
           controller.notify(t('toast.offer', { client: clientName(event.clientId) }), 'info');
           break;
+        case 'sla-breached':
+          controller.notify(
+            t('toast.slaBreached', { client: clientName(event.clientId), days: event.days, max: balance.clients.breachDaysToLeave }),
+          );
+          break;
         case 'client-left':
           controller.notify(t(`toast.clientLeft.${event.reason}`, { client: clientName(event.clientId) }));
           break;

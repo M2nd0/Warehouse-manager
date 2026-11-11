@@ -65,7 +65,10 @@ function leave(state: GameState, ctx: SimContext, client: Client, reason: 'sla' 
 function closeDay(state: GameState, ctx: SimContext): void {
   for (const client of state.clients) {
     const { due, bad } = client.today;
-    if (client.active && due > 0 && bad / due > C.breachShare) client.month.breachDays++;
+    if (client.active && due > 0 && bad / due > C.breachShare) {
+      client.month.breachDays++;
+      emit(ctx, { type: 'sla-breached', tick: state.tick, clientId: client.id, days: client.month.breachDays });
+    }
     client.today = { due: 0, bad: 0 };
     if (!client.active) {
       takeGoodsBack(state, client);

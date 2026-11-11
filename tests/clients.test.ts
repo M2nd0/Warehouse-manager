@@ -67,6 +67,8 @@ describe('clients: leaving', () => {
     const slots = [...sim.state.locations.values()].filter((l) => l.kind === 'rack' && l.level === 1);
     ['ES-01', 'ES-02', 'ES-03', 'ES-04'].forEach((sku, i) => addPallet(sim.state, sku, slots[i].id));
     const events = runUntil(sim, () => !client.active, 8 * TICKS_PER_DAY);
+    // The player is warned on each of the days leading up to it.
+    expect(events.filter((e) => e.type === 'sla-breached').map((e) => (e.type === 'sla-breached' ? e.days : 0))).toEqual([1, 2, 3]);
     expect(client.month.breachDays).toBe(C.breachDaysToLeave);
     expect(events.find((e) => e.type === 'client-left')).toMatchObject({ clientId: 'eshop', reason: 'sla' });
     // It left at the close of yesterday.
@@ -89,6 +91,7 @@ describe('clients: leaving', () => {
     s3.state.clients[0].today = { due: 20, bad: 5 };
     s3.run(TICKS_PER_DAY);
     expect(s3.state.clients[0].month.breachDays).toBe(1);
+    expect(s3.state.reports).toHaveLength(1);
     expect(s3.state.clients[0].today).toEqual({ due: 0, bad: 0 });
   });
 

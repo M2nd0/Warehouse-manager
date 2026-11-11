@@ -314,6 +314,7 @@
   "toast.clientJoined": "{client} has signed. First delivery tomorrow.",
   "toast.clientLeft.sla": "{client} has left: the SLA was breached on three days this month.",
   "toast.clientLeft.reputation": "{client} did not renew: your reputation is too low.",
+  "toast.slaBreached": "SLA breached for {client} today: {days} of {max} such days this month and they leave.",
   "toast.saved": "Game saved.",
   "toast.loaded": "Welcome back – continuing on day {day}.",
   "toast.badSave": "That file is not a save of this version of the game.",

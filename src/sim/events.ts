@@ -21,6 +21,8 @@ export type SimEvent =
   | { type: 'worker-blocked'; tick: number; workerId: Id }
   | { type: 'offer-made'; tick: number; clientId: string }
   | { type: 'client-joined'; tick: number; clientId: string }
+  /** Today counted as an SLA breach for this client; `days` so far this month. */
+  | { type: 'sla-breached'; tick: number; clientId: string; days: number }
   | { type: 'client-left'; tick: number; clientId: string; reason: 'sla' | 'reputation' }
   | { type: 'onboarding-step'; tick: number; done: number }
   | { type: 'incident-raised'; tick: number; incidentId: Id }
