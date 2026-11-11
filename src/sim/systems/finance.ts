@@ -111,6 +111,7 @@ function closeDay(state: GameState, ctx: SimContext): void {
 
   // Start the new day with a clean slate.
   state.today = emptyDayStats();
+  state.heat.fill(0);
   state.orders = state.orders.filter((o) => o.status !== 'shipped');
   state.trucks = state.trucks.filter((t) => t.status !== 'done');
 }

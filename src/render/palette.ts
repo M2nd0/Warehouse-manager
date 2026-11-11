@@ -21,6 +21,13 @@ export const palette = {
   buildTight: 0xe07b39,
   buildNarrow: 0xd64545,
   selection: 0xf2c230,
+  /** Overlays: footfall from cold to hot; turnover classes A / B / C; an empty position. */
+  heatCold: 0xf2e6a8,
+  heatHot: 0xd64545,
+  insightA: 0xd64545,
+  insightB: 0xf2c230,
+  insightC: 0x4f8fb3,
+  insightEmpty: 0x3b4652,
   /** Warm white daylight. */
   sunLight: 0xfff6e8,
   skyLight: 0xf4f7fa,

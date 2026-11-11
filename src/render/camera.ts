@@ -19,12 +19,17 @@ const TARGET_MARGIN = 12;
 /** Width of yard west of the hall that the opening view takes in, metres. */
 const YARD_IN_VIEW = 8;
 
+/** `focus` brings the camera at least this close, metres. */
+const FOCUS_DISTANCE = 32;
+
 const UP = new Vector3(0, 1, 0);
 
 export interface CameraRig {
   camera: PerspectiveCamera;
   /** Swing up to look straight down, or back to the angle it was at before. */
   setTopDown(on: boolean): void;
+  /** Glide over to look at this point on the floor, coming closer if the view is far out. */
+  focus(x: number, z: number): void;
   update(dtSeconds: number): void;
   resize(width: number, height: number): void;
   dispose(): void;
@@ -59,9 +64,12 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
   let polarGoal: number | null = null;
   let polarBefore = START_POLAR;
   const spherical = new Spherical();
+  /** Point the camera is gliding towards (see `focus`). */
+  let focusGoal: Vector3 | null = null;
   // Taking the camera by hand ends the swing.
   const onPointerDown = (): void => {
     polarGoal = null;
+    focusGoal = null;
   };
   dom.addEventListener('pointerdown', onPointerDown);
 
@@ -93,6 +101,7 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
     const ahead = (held.has('KeyW') ? 1 : 0) - (held.has('KeyS') ? 1 : 0);
     const side = (held.has('KeyD') ? 1 : 0) - (held.has('KeyA') ? 1 : 0);
     if (ahead !== 0 || side !== 0) {
+      focusGoal = null;
       camera.getWorldDirection(forward);
       forward.y = 0;
       if (forward.lengthSq() < 1e-6) forward.copy(camera.up).setY(0);
@@ -124,6 +133,21 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
       camera.position.copy(controls.target).add(offset.setFromSpherical(spherical));
     }
 
+    if (focusGoal !== null) {
+      const ease = 1 - Math.exp(-7 * dt);
+      move.subVectors(focusGoal, controls.target).multiplyScalar(ease);
+      controls.target.add(move);
+      camera.position.add(move);
+      // Come in to a comfortable distance if the view is far out.
+      offset.subVectors(camera.position, controls.target);
+      const distance = offset.length();
+      if (distance > FOCUS_DISTANCE) {
+        offset.multiplyScalar(1 - ease * (1 - FOCUS_DISTANCE / distance));
+        camera.position.copy(controls.target).add(offset);
+      }
+      if (move.lengthSq() < 1e-6 && distance <= FOCUS_DISTANCE * 1.02) focusGoal = null;
+    }
+
     controls.update();
 
     // Keep the hall in sight.
@@ -146,6 +170,9 @@ export function createCameraRig(dom: HTMLElement, hall: GameView['hall']): Camer
       } else {
         polarGoal = polarBefore;
       }
+    },
+    focus(x, z) {
+      focusGoal = new Vector3(x, 0, z);
     },
     update,
     resize(width, height) {

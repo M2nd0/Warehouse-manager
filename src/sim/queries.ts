@@ -1,7 +1,13 @@
 import { balance } from '../data/balance';
-import { TICKS_PER_DAY, dayStartTick } from './time';
+import { storageUse } from './economy/report';
+import { floorLocId, reachLevels } from './layout';
+import { TICKS_PER_DAY, dayStartTick, minuteOfDay, nextPickupDeparture } from './time';
 import type {
+  Cell,
   Cents,
+  EntityRef,
+  TruckKind,
+  TruckStatus,
   ClientId,
   GameView,
   Id,
@@ -53,6 +59,12 @@ export function openOrders(state: GameView): OrderView[] {
     .sort((a, b) => a.deadlineTick - b.deadlineTick || a.id - b.id);
 }
 
+/** What shipping this order earns (invoiced at the end of the month). */
+export function orderFee(state: GameView, order: OrderView): Cents {
+  const client = state.clients.find((c) => c.id === order.clientId);
+  return client ? order.lines.length * client.contract.pickFeePerLine : 0;
+}
+
 export function unresolvedIncidents(state: GameView): number {
   return state.incidents.filter((i) => i.resolved === null).length;
 }
@@ -87,6 +99,42 @@ export function activityOf(state: GameView, worker: WorkerView): Activity {
   };
 }
 
+/** The one thing worth knowing about a worker at a glance, shown as an icon over their head. */
+export type Bubble =
+  | 'blocked'
+  | 'tired'
+  | 'idle'
+  | 'carrying'
+  | 'picking'
+  | 'packing'
+  | 'attend'
+  /** Step 2: on a break / working past the end of the shift. */
+  | 'break'
+  | 'overtime';
+
+/**
+ * What to show above a worker: trouble first (blocked, exhausted, idle),
+ * otherwise what their hands are doing. Null when off shift or just walking
+ * with nothing in hand.
+ */
+export function bubbleOf(state: GameView, worker: WorkerView): Bubble | null {
+  if (worker.status === 'off') return null;
+  if (worker.status === 'blocked') return 'blocked';
+  if (worker.fatigue > balance.people.fatigue.threshold) return 'tired';
+  const task = worker.taskId === null ? undefined : state.tasks.find((t) => t.id === worker.taskId);
+  if (!task) return 'idle';
+  if (worker.carrying !== null) return 'carrying';
+  const step = task.steps[Math.min(task.stepIdx, task.steps.length - 1)];
+  if (task.kind === 'attend') return 'attend';
+  if (task.kind === 'pick' && task.steps.some((s) => s.op === 'pack')) {
+    // An order picked by the piece: at the shelves until the last pick is done, then packing.
+    const lastPick = task.steps.map((s) => s.op).lastIndexOf('pick');
+    return task.stepIdx > lastPick ? 'packing' : 'picking';
+  }
+  if (step.op === 'unload' || step.op === 'lift' || step.op === 'drop') return 'carrying';
+  return null;
+}
+
 // --------------------------------------------------------------- storage ----
 
 export interface RackLevel {
@@ -113,6 +161,38 @@ export function rackContents(state: GameView, rackId: Id): RackLevel[] {
     });
   }
   return [...levels.values()].sort((a, b) => b.level - a.level);
+}
+
+export interface CellFill {
+  cell: Cell;
+  /** Fastest turnover class of the goods standing here; null when the positions are empty. */
+  velocity: 'A' | 'B' | 'C' | null;
+  /** How full the positions the equipment can reach are, 0–1 (a full pallet counts 1). */
+  fill: number;
+  /** Something here is on hold (lost or damaged). */
+  hold: boolean;
+}
+
+/** Per rack cell: what turnover class stands there and how full it is (the slot-fill overlay). */
+export function slotFill(state: GameView): CellFill[] {
+  const reach = reachLevels(state);
+  const cells = new Map<string, CellFill>();
+  for (const loc of state.locations.values()) {
+    if (loc.kind !== 'rack' || loc.level > reach) continue;
+    const key = `${loc.cell.x},${loc.cell.y}`;
+    let entry = cells.get(key);
+    if (!entry) {
+      entry = { cell: { x: loc.cell.x, y: loc.cell.y }, velocity: null, fill: 0, hold: false };
+      cells.set(key, entry);
+    }
+    const pallet = loc.palletId === null ? undefined : state.pallets.get(loc.palletId);
+    const sku = pallet ? state.skus.get(pallet.skuId) : undefined;
+    if (!pallet || !sku) continue;
+    entry.fill += Math.min(1, pallet.qty / sku.unitsPerPallet) / reach;
+    if (entry.velocity === null || sku.velocity < entry.velocity) entry.velocity = sku.velocity;
+    if (pallet.hold !== null) entry.hold = true;
+  }
+  return [...cells.values()];
 }
 
 /** Weight of a pallet's load in kg. */
@@ -266,4 +346,330 @@ export function cashflow(state: GameView, days: number = balance.invoicing.payme
     result.push({ day, cash, items });
   }
   return result;
+}
+
+// -------------------------------------------------------------- the day ----
+
+export interface TimelineTruck {
+  id: Id;
+  kind: TruckKind;
+  clientId: ClientId | null;
+  status: TruckStatus;
+  /** Agreed window, minutes of today (0–1440). */
+  from: number;
+  to: number;
+  /** Minutes of today it actually arrived, got a dock and left; null if not yet. */
+  arrived: number | null;
+  docked: number | null;
+  left: number | null;
+  /** In the yard without a dock right now. */
+  waiting: boolean;
+}
+
+export interface DayTimeline {
+  /** Minute of the day it is now. */
+  now: number;
+  shift: { start: number; end: number };
+  /** Order cutoffs of the active clients (minutes of day), earliest first, each minute once. */
+  cutoffs: number[];
+  /** When the carrier leaves. */
+  departure: number;
+  trucks: TimelineTruck[];
+  /** Minutes of overtime called for today (drawn after the shift). */
+  overtime: number;
+  /** Other moments worth a tick on the strip. */
+  marks: { key: string; kind: TimelineMarkKind; minute: number }[];
+}
+
+export type TimelineMarkKind = 'rush';
+
+/** Everything with a time today, for the strip under the top bar. */
+export function dayTimeline(state: GameView): DayTimeline {
+  const midnight = dayStartTick(state.day);
+  const today = (tick: number | null): number | null =>
+    tick === null ? null : Math.min(TICKS_PER_DAY, Math.max(0, tick - midnight));
+  const cutoffs = new Set<number>();
+  for (const client of state.clients) if (client.active) cutoffs.add(client.contract.cutoffMinute);
+
+  const trucks: TimelineTruck[] = [];
+  for (const truck of state.trucks) {
+    const { start, end } = truck.window;
+    if (end <= midnight || start >= midnight + TICKS_PER_DAY) continue;
+    trucks.push({
+      id: truck.id,
+      kind: truck.kind,
+      clientId: truck.clientId,
+      status: truck.status,
+      from: today(start) ?? 0,
+      to: today(end) ?? 0,
+      arrived: today(truck.arrivedTick),
+      docked: today(truck.dockedTick),
+      left: today(truck.leftTick),
+      waiting: truck.status === 'waiting',
+    });
+  }
+  trucks.sort((a, b) => a.from - b.from || a.id - b.id);
+  return {
+    now: minuteOfDay(state.tick),
+    shift: shiftToday(state),
+    cutoffs: [...cutoffs].sort((a, b) => a - b),
+    departure: balance.trucks.pickup.departMinute,
+    trucks,
+    overtime: 0,
+    marks: [],
+  };
+}
+
+/** Today's working hours, minutes of day. */
+export function shiftToday(_state: GameView): { start: number; end: number } {
+  return { start: balance.shift.start, end: balance.shift.end };
+}
+
+export interface PaceForecast {
+  /** Orders that must be on the next carrier and are not packed or staged yet. */
+  due: number;
+  /** How many of them the pickers can still get through. */
+  capacity: number;
+  /** due − capacity, never below 0: orders that will miss the carrier at this pace. */
+  atRisk: number;
+  /** Working minutes left before the carrier leaves. */
+  minutesLeft: number;
+  /** People who pick (in the building, or expected in when the shift starts). */
+  pickers: number;
+  minutesPerOrder: number;
+  /** Tick of the carrier departure the forecast is for. */
+  departureTick: number;
+}
+
+/**
+ * Will today's orders make the carrier? Orders still to pick × the minutes
+ * one takes, against the working minutes left × the people picking.
+ * The pace is the day's own once a few orders are done, else yesterday's,
+ * else a guess from balance.
+ */
+export function paceForecast(state: GameView): PaceForecast {
+  const departureTick = nextPickupDeparture(state.tick);
+  const midnight = dayStartTick(Math.floor(departureTick / TICKS_PER_DAY));
+  const shift = shiftToday(state);
+  const from = Math.max(state.tick, midnight + shift.start);
+  const to = Math.min(departureTick, midnight + shift.end);
+  const minutesLeft = Math.max(0, to - from);
+
+  let due = 0;
+  for (const order of state.orders) {
+    if ((order.status === 'open' || order.status === 'picking') && !order.late && order.deadlineTick <= departureTick) {
+      due++;
+    }
+  }
+
+  const beforeShift = minuteOfDay(state.tick) < shift.start || state.tick < midnight;
+  let pickers = 0;
+  for (const worker of state.workers) {
+    if (worker.duty === 'inbound' || worker.leaving) continue;
+    const here = beforeShift ? worker.sickUntilDay === null : worker.status !== 'off';
+    if (here) pickers++;
+  }
+
+  const A = balance.alerts;
+  let minutesPerOrder: number = A.defaultMinutesPerOrder;
+  const last = state.reports[state.reports.length - 1];
+  if (state.today.picksDone >= A.paceAfterPicks) minutesPerOrder = state.today.pickMinutes / state.today.picksDone;
+  else if (last && last.picksDone >= A.paceAfterPicks) minutesPerOrder = last.pickMinutes / last.picksDone;
+
+  const capacity = Math.floor((minutesLeft * pickers) / Math.max(0.5, minutesPerOrder));
+  return { due, capacity, atRisk: Math.max(0, due - capacity), minutesLeft, pickers, minutesPerOrder, departureTick };
+}
+
+// ---------------------------------------------------------------- alerts ----
+
+export type AlertKind =
+  | 'incident'
+  | 'orders-late'
+  | 'orders-at-risk'
+  | 'worker-blocked'
+  | 'nobody-in'
+  | 'truck-waiting'
+  | 'receiving-full'
+  | 'storage-full'
+  | 'worker-tired'
+  | 'worker-idle'
+  | 'offer';
+
+export type AlertTone = 'bad' | 'warn' | 'info';
+
+/** Something the player should know about right now, and where to look. */
+export interface Alert {
+  /** Stable while the situation lasts (for list keys). */
+  key: string;
+  kind: AlertKind;
+  tone: AlertTone;
+  /** What to select and where to point the camera. */
+  subject: EntityRef | null;
+  cell: Cell | null;
+  /** Numbers and ids the wording needs. */
+  params: Record<string, number | string>;
+}
+
+const TONE_ORDER: Record<AlertTone, number> = { bad: 0, warn: 1, info: 2 };
+
+const zoneCell = (state: GameView, kind: 'receiving' | 'dispatch'): Cell | null => {
+  const zone = state.hall.zones.find((z) => z.kind === kind);
+  const cell = zone?.cells[Math.floor((zone.cells.length - 1) / 2)];
+  return cell ? { x: cell.x, y: cell.y } : null;
+};
+
+/**
+ * The alerts column: every problem that is visible in the hall right now,
+ * worst first. Nothing here is stored — the list is worked out from the
+ * state, so an alert goes away the moment its cause does.
+ */
+export function alerts(state: GameView): Alert[] {
+  const list: Alert[] = [];
+  const A = balance.alerts;
+  const minute = minuteOfDay(state.tick);
+  const shift = shiftToday(state);
+  const onShift = minute >= shift.start && minute < shift.end;
+  const packing = state.hall.stations.find((s) => s.kind === 'packing');
+  const packingCell = packing ? { x: packing.cell.x, y: packing.cell.y } : null;
+
+  for (const incident of state.incidents) {
+    if (incident.resolved !== null) continue;
+    list.push({
+      key: `incident-${incident.id}`,
+      kind: 'incident',
+      tone: 'bad',
+      subject: incident.subject as EntityRef | null,
+      cell: incident.cell ? { x: incident.cell.x, y: incident.cell.y } : null,
+      params: { incidentId: incident.id },
+    });
+  }
+
+  const late = state.orders.filter((o) => o.late && o.status !== 'shipped').length;
+  if (late > 0) {
+    list.push({ key: 'orders-late', kind: 'orders-late', tone: 'bad', subject: null, cell: packingCell, params: { count: late } });
+  }
+
+  const pace = paceForecast(state);
+  const departsToday = Math.floor(pace.departureTick / TICKS_PER_DAY) === state.day;
+  if (pace.atRisk > 0 && departsToday && minute >= shift.start) {
+    list.push({
+      key: 'orders-at-risk',
+      kind: 'orders-at-risk',
+      tone: pace.atRisk * 4 >= pace.due ? 'bad' : 'warn',
+      subject: null,
+      cell: packingCell,
+      params: {
+        count: pace.atRisk,
+        due: pace.due,
+        pickers: pace.pickers,
+        minutesLeft: pace.minutesLeft,
+        minutesPerOrder: Math.round(pace.minutesPerOrder * 10) / 10,
+        departureTick: pace.departureTick,
+      },
+    });
+  }
+
+  let present = 0;
+  for (const worker of state.workers) {
+    if (worker.status === 'off') continue;
+    present++;
+    const subject: EntityRef = { kind: 'worker', id: worker.id };
+    if (worker.status === 'blocked') {
+      list.push({ key: `blocked-${worker.id}`, kind: 'worker-blocked', tone: 'bad', subject, cell: null, params: { name: worker.name } });
+    } else if (worker.status === 'idle' && worker.idleSinceTick !== null && onShift) {
+      const minutes = state.tick - worker.idleSinceTick;
+      if (minutes >= A.idleMinutes) {
+        list.push({ key: `idle-${worker.id}`, kind: 'worker-idle', tone: 'info', subject, cell: null, params: { name: worker.name, minutes } });
+      }
+    }
+    if (worker.fatigue > balance.people.fatigue.threshold) {
+      list.push({
+        key: `tired-${worker.id}`,
+        kind: 'worker-tired',
+        tone: 'warn',
+        subject,
+        cell: null,
+        params: { name: worker.name, fatigue: Math.round(worker.fatigue) },
+      });
+    }
+  }
+  if (onShift && present === 0 && state.workers.length > 0 && state.tick > 0) {
+    list.push({ key: 'nobody-in', kind: 'nobody-in', tone: 'bad', subject: null, cell: null, params: {} });
+  }
+
+  for (const truck of state.trucks) {
+    if (truck.status !== 'waiting' || truck.arrivedTick === null) continue;
+    const minutes = state.tick - truck.arrivedTick;
+    list.push({
+      key: `truck-${truck.id}`,
+      kind: 'truck-waiting',
+      tone: minutes >= A.truckWaitingMinutes ? 'bad' : 'warn',
+      subject: { kind: 'truck', id: truck.id },
+      cell: null,
+      params: { minutes, client: truck.clientId ?? '', pickup: truck.kind === 'pickup' ? 1 : 0 },
+    });
+  }
+
+  // Receiving zone: full means the next pallet cannot come off a truck.
+  let slots = 0;
+  let taken = 0;
+  let waitingPallets = 0;
+  for (const zone of state.hall.zones) {
+    if (zone.kind !== 'receiving') continue;
+    for (const cell of zone.cells) {
+      const loc = state.locations.get(floorLocId('receiving', cell));
+      if (!loc) continue;
+      slots++;
+      if (loc.palletId !== null || loc.reservedBy !== null) taken++;
+      if (loc.palletId !== null) waitingPallets++;
+    }
+  }
+  if (slots > 0 && taken >= slots) {
+    list.push({
+      key: 'receiving-full',
+      kind: 'receiving-full',
+      tone: 'warn',
+      subject: null,
+      cell: zoneCell(state, 'receiving'),
+      params: { pallets: taken },
+    });
+  }
+
+  const storage = storageUse(state);
+  if (storage.capacity === 0 ? waitingPallets > 0 : storage.used >= storage.capacity && waitingPallets > 0) {
+    list.push({
+      key: 'storage-full',
+      kind: 'storage-full',
+      tone: 'bad',
+      subject: null,
+      cell: zoneCell(state, 'receiving'),
+      params: { pallets: waitingPallets, used: storage.used, capacity: storage.capacity },
+    });
+  } else if (storage.capacity > 0 && storage.used / storage.capacity > A.storageNearlyFull) {
+    list.push({
+      key: 'storage-full',
+      kind: 'storage-full',
+      tone: 'info',
+      subject: null,
+      cell: null,
+      params: { pallets: 0, used: storage.used, capacity: storage.capacity },
+    });
+  }
+
+  for (const offer of state.offers) {
+    list.push({
+      key: `offer-${offer.clientId}`,
+      kind: 'offer',
+      tone: 'info',
+      subject: { kind: 'client', id: offer.clientId },
+      cell: null,
+      params: { client: offer.clientId, untilDay: offer.expiresDay },
+    });
+  }
+
+  // Worst first; within a tone, in the order found (stable).
+  return list
+    .map((alert, index) => ({ alert, index }))
+    .sort((a, b) => TONE_ORDER[a.alert.tone] - TONE_ORDER[b.alert.tone] || a.index - b.index)
+    .map((entry) => entry.alert);
 }

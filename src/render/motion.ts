@@ -78,3 +78,13 @@ export function bedLength(pallets: number): number {
   const rows = Math.max(2, Math.ceil(pallets / 2));
   return 0.3 + rows * 1.08;
 }
+
+/**
+ * How strongly to colour a floor cell walked over `count` times when the
+ * busiest cell saw `max`: 0 for untouched, rising quickly at first (square
+ * root) so that side aisles still show next to the main one.
+ */
+export function heatShade(count: number, max: number): number {
+  if (count <= 0 || max <= 0) return 0;
+  return Math.min(1, Math.sqrt(count / max));
+}

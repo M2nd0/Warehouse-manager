@@ -14,6 +14,11 @@ import type { Client, GameState, Id, Order, Pallet, SkuId, Truck } from '../type
 export function step(state: GameState, ctx: SimContext): void {
   if (ctx.dayStart) scheduleDay(state);
   arrive(state, ctx);
+  for (const truck of state.trucks) {
+    if (truck.status === 'waiting' && state.tick - (truck.arrivedTick ?? state.tick) === balance.alerts.truckWaitingMinutes) {
+      emit(ctx, { type: 'truck-waiting-long', tick: state.tick, truckId: truck.id });
+    }
+  }
   depart(state, ctx);
   dock(state, ctx);
 }

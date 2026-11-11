@@ -9,6 +9,8 @@ export type SimEvent =
   | { type: 'truck-arrived'; tick: number; truckId: Id }
   | { type: 'truck-docked'; tick: number; truckId: Id; dockId: Id }
   | { type: 'truck-left'; tick: number; truckId: Id }
+  /** A truck has stood in the yard for `balance.alerts.truckWaitingMinutes` without getting a dock. */
+  | { type: 'truck-waiting-long'; tick: number; truckId: Id }
   /** The carrier left without loading because it never got a dock. */
   | { type: 'pickup-missed'; tick: number; truckId: Id }
   | { type: 'pallet-received'; tick: number; palletId: Id }

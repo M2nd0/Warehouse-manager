@@ -51,6 +51,17 @@ test('a new game can be built in, played and inspected', async ({ page }) => {
   await page.waitForTimeout(900);
   await expect(page.getByTestId('hud-time')).toHaveText(stopped ?? '');
 
+  // The day timeline shows the shift, today's trucks and where the clock is.
+  await expect(page.getByTestId('timeline-shift')).toBeVisible();
+  await expect(page.getByTestId('timeline-now')).toBeVisible();
+  expect(await page.getByTestId('timeline-truck').count()).toBeGreaterThan(0);
+  // The explanatory overlays cycle on O and come back to none.
+  await page.keyboard.press('o');
+  await expect(page.getByTestId('tool-insight')).toHaveAttribute('data-mode', 'heat');
+  await expect(page.getByTestId('insight-legend')).toBeVisible();
+  for (let i = 0; i < 3; i++) await page.keyboard.press('o');
+  await expect(page.getByTestId('tool-insight')).toHaveAttribute('data-mode', 'none');
+
   // The four panels open on their keys.
   for (const [key, panel] of [['1', 'operations'], ['2', 'people'], ['3', 'clients'], ['4', 'finance']]) {
     await page.keyboard.press(key);

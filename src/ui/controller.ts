@@ -1,10 +1,11 @@
 import { balance } from '../data/balance';
 import { t } from '../data/i18n';
 import type { View } from '../render/scene';
-import type { Action, RackPlacement, Sim } from '../sim';
+import type { Action, RackPlacement, Sim, SimEvent } from '../sim';
 import type { Cell, EntityRef, GameView, Id } from '../sim/types';
 import { sameRef } from './store';
-import type { PanelId, Store, Tool } from './store';
+import { INSIGHT_MODES } from '../render/insight';
+import type { AutoPauseKey, Notice, PanelId, Store, Tool } from './store';
 
 /**
  * Mouse and keyboard in the 3D view: selecting things, placing and removing
@@ -29,6 +30,12 @@ export interface UiActions {
   select(ref: EntityRef | null): void;
   toggleTopDown(): void;
   demolish(rackId: Id): void;
+  /** Select something and take the camera to it (or to a floor cell); optionally open a panel. */
+  focus(ref: EntityRef | null, cell: Cell | null, panel?: PanelId): void;
+  /** Next explanatory overlay: none → pick heat → slot fill → walking routes. */
+  cycleInsight(): void;
+  dismissNotice(id: number): void;
+  setAutoPause(key: AutoPauseKey, on: boolean): void;
   /** Send an action to the game; a refusal is shown as a message. Returns whether it went through. */
   act(action: Action): boolean;
 }
@@ -39,6 +46,10 @@ export interface Controller {
   update(state: GameView): void;
   /** Show a short message above the toolbar. */
   notify(text: string, tone?: 'error' | 'info'): void;
+  /** Add an entry to the day's news in the alerts column. */
+  note(notice: Omit<Notice, 'id'>): void;
+  /** Called with what every player action caused, so the rest of the game can react (sounds, pop-ups). */
+  onEvents: ((events: SimEvent[]) => void) | null;
   dispose(): void;
 }
 
@@ -62,7 +73,19 @@ function exists(state: GameView, ref: EntityRef): boolean {
   }
 }
 
+/** Things the camera can be pointed at and that can be selected. */
+const SELECTABLE: EntityRef['kind'][] = ['worker', 'vehicle', 'truck', 'dock', 'rack', 'pallet'];
+const NOTICES_KEPT = 8;
+const AUTO_PAUSE_KEY = 'warehouse-manager.autoPause';
+
 export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View, store: Store): Controller {
+  let noticeId = 0;
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(AUTO_PAUSE_KEY) ?? 'null');
+    if (saved && typeof saved === 'object') store.set({ autoPause: { ...store.get().autoPause, ...saved } });
+  } catch {
+    // No storage, or nonsense in it: the defaults stand.
+  }
   let pointer: { x: number; y: number } | null = null;
   let pressed: { x: number; y: number; button: number } | null = null;
   let toastTimer = 0;
@@ -146,6 +169,7 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
       toast(t(`build.error.${result.error}`));
       return;
     }
+    controller.onEvents?.(result.events);
     view.setHover(null);
     if (sameRef(store.get().selection, { kind: 'rack', id: rackId })) select(null);
   };
@@ -157,6 +181,7 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
       if (!cell) return;
       const result = sim.dispatch({ type: 'build-rack', ...placementAt(cell) });
       if (!result.ok) toast(t(`build.error.${result.error}`));
+      else controller.onEvents?.(result.events);
       ghostKey = '';
       refreshGhost();
     } else if (tool === 'demolish') {
@@ -190,9 +215,32 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
       view.setTopDown(topDown);
     },
     demolish,
+    focus(ref, cell, panel) {
+      if (ref && SELECTABLE.includes(ref.kind) && exists(sim.state, ref)) select(ref);
+      view.focus(ref, cell);
+      if (panel && store.get().panel !== panel) store.set({ panel });
+    },
+    cycleInsight() {
+      const next = INSIGHT_MODES[(INSIGHT_MODES.indexOf(store.get().insight) + 1) % INSIGHT_MODES.length];
+      store.set({ insight: next });
+      view.setInsight(next);
+    },
+    dismissNotice(id) {
+      store.set({ notices: store.get().notices.filter((n) => n.id !== id) });
+    },
+    setAutoPause(key, on) {
+      const autoPause = { ...store.get().autoPause, [key]: on };
+      store.set({ autoPause });
+      try {
+        window.localStorage.setItem(AUTO_PAUSE_KEY, JSON.stringify(autoPause));
+      } catch {
+        // Not remembered, then.
+      }
+    },
     act(action) {
       const result = sim.dispatch(action);
       if (!result.ok) toast(t(`build.error.${result.error}`));
+      else controller.onEvents?.(result.events);
       // Whatever changed, the panels should show it now, paused or not.
       store.set({});
       return result.ok;
@@ -230,6 +278,7 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
     else if (event.code === 'KeyX') setTool('demolish');
     else if (event.code === 'KeyR' && store.get().tool === 'rack') actions.rotate();
     else if (event.code === 'KeyT') actions.toggleTopDown();
+    else if (event.code === 'KeyO') actions.cycleInsight();
   };
 
   canvas.addEventListener('pointerdown', onPointerDown);
@@ -239,9 +288,14 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
   window.addEventListener('keydown', onKeyDown);
   canvas.dataset.tool = store.get().tool;
 
-  return {
+  const controller: Controller = {
     actions,
     notify: toast,
+    note(notice) {
+      const notices = [{ ...notice, id: ++noticeId }, ...store.get().notices].slice(0, NOTICES_KEPT);
+      store.set({ notices });
+    },
+    onEvents: null,
     update(state) {
       const { selection, tool } = store.get();
       // What was selected may have left the building.
@@ -258,4 +312,5 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
       window.clearTimeout(toastTimer);
     },
   };
+  return controller;
 }

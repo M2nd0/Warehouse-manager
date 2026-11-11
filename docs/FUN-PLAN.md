@@ -230,7 +230,7 @@ Suggested first prompt for the next session:
 
 | Step | Status |
 | --- | --- |
-| 1 Clarity | not started |
+| 1 Clarity | **done** — day timeline, alerts column with the pace forecast and the day's news, state bubbles over workers, overlays on O (pick heat, slot fill, routes), auto-pause options, floating amounts and the cash flash. Deviation: footfall counters live in `state.heat`, not in `DayStats` (which is copied into every daily report). |
 | 2 Daily decisions | not started |
 | 3 More to build | not started |
 | 4 People | not started |

@@ -1,5 +1,6 @@
 import type { AisleRating, PlacementError } from '../sim';
-import type { DailyReport, EntityRef, Orientation } from '../sim/types';
+import type { InsightMode } from '../render/insight';
+import type { Cell, DailyReport, EntityRef, Orientation } from '../sim/types';
 
 /**
  * State of the interface itself (which tool is in hand, what is selected,
@@ -14,6 +15,26 @@ export interface Toast {
   text: string;
   tone: 'error' | 'info';
 }
+
+/** Something that happened and is worth remembering for the rest of the day. */
+export interface Notice {
+  id: number;
+  tone: 'bad' | 'warn' | 'info' | 'good';
+  text: string;
+  /** When it happened. */
+  tick: number;
+  /** Where to look, if anywhere. */
+  subject: EntityRef | null;
+  cell: Cell | null;
+}
+
+/** When the game stops by itself so that nothing is missed. */
+export interface AutoPause {
+  incident: boolean;
+  offer: boolean;
+  truck: boolean;
+}
+export type AutoPauseKey = keyof AutoPause;
 
 /** What the building tool reports about the spot under the cursor. */
 export interface BuildHint {
@@ -33,6 +54,13 @@ export interface UiState {
   hint: BuildHint | null;
   /** The daily report on show (the game waits while it is). */
   report: DailyReport | null;
+  /** The explanatory overlay drawn over the hall (key O). */
+  insight: InsightMode;
+  /** News of the day, newest first. */
+  notices: Notice[];
+  autoPause: AutoPause;
+  /** The last change of cash, for the flash in the top bar. */
+  cashFlash: { id: number; up: boolean } | null;
 }
 
 export interface Store {
@@ -52,6 +80,10 @@ export function createStore(): Store {
     toast: null,
     hint: null,
     report: null,
+    insight: 'none',
+    notices: [],
+    autoPause: { incident: true, offer: true, truck: true },
+    cashFlash: null,
   };
   const listeners = new Set<() => void>();
   return {

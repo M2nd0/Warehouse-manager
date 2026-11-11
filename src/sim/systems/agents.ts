@@ -15,6 +15,7 @@ export function step(state: GameState, ctx: SimContext): void {
   for (const worker of state.workers) {
     if (worker.status === 'off') {
       if (worker.trail.length > 0) worker.trail = [];
+      worker.idleSinceTick = null;
       continue;
     }
     state.today.shiftMinutes++;
@@ -23,9 +24,11 @@ export function step(state: GameState, ctx: SimContext): void {
     const task = worker.taskId === null ? undefined : state.tasks.find((t) => t.id === worker.taskId);
     if (!task) {
       worker.status = 'idle';
+      if (worker.idleSinceTick === null) worker.idleSinceTick = state.tick;
       tire(worker, 0);
       continue;
     }
+    worker.idleSinceTick = null;
     // Still at it after the shift has ended: overtime (bad for morale).
     if (ctx.minute >= balance.shift.end || ctx.minute < balance.shift.start) worker.overtimeToday++;
 
@@ -38,7 +41,7 @@ export function step(state: GameState, ctx: SimContext): void {
       }
       const current = task.steps[task.stepIdx];
       if (current.op === 'walk') {
-        budget = walk(worker, budget, walkSpeed(state, worker));
+        budget = walk(state, worker, budget, walkSpeed(state, worker));
         if (worker.path.length > 0) break; // still on the way
       } else {
         const used = Math.min(budget, worker.workLeft);
@@ -55,6 +58,10 @@ export function step(state: GameState, ctx: SimContext): void {
     tire(worker, busy);
 
     if (task.stepIdx >= task.steps.length) {
+      if (task.kind === 'pick') {
+        state.today.picksDone++;
+        state.today.pickMinutes += state.tick + 1 - task.createdTick;
+      }
       completeTask(state, worker, task);
       worker.status = 'idle';
     } else if (!blocked) {
@@ -64,7 +71,7 @@ export function step(state: GameState, ctx: SimContext): void {
 }
 
 /** Advance along the path; returns the part of the minute left over. */
-function walk(worker: Worker, budget: number, speed: number): number {
+function walk(state: GameState, worker: Worker, budget: number, speed: number): number {
   while (budget > EPSILON && worker.path.length > 0) {
     const next = worker.path[0];
     const dx = next.x - worker.pos.x;
@@ -74,6 +81,9 @@ function walk(worker: Worker, budget: number, speed: number): number {
     if (range + EPSILON >= distance) {
       worker.pos = { x: next.x, y: next.y };
       worker.path.shift();
+      // Footfall for the pick-heat overlay.
+      const cell = next.y * state.hall.width + next.x;
+      if (distance > 0 && cell >= 0 && cell < state.heat.length) state.heat[cell]++;
       budget = Math.max(0, budget - distance / speed);
     } else {
       const f = range / distance;

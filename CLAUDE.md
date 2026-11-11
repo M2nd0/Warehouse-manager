@@ -53,6 +53,8 @@ TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game fram
 - Panels and cards are plain functions of `GameView`. Anything they need worked out (truck board, month to date, cash-flow projection, rack contents) is a pure query in `src/sim/queries.ts` with a Vitest test — not logic inside a component.
 - A rule the player must be told about before acting (can a rack go here, how wide are the aisles) is computed by the simulation (`sim.previewRack`) and only drawn by render/UI, so the preview and the action can never disagree.
 - Wording shared between components lives in `src/ui/text.ts`; every string goes through `t()` (typed keys) or `tData()` (keys built from data such as `sku.<id>`).
+- What the player must notice is worked out, not stored: `alerts(state)`, `paceForecast(state)`, `dayTimeline(state)` and `bubbleOf(state, worker)` in `queries.ts` feed the alerts column, the timeline and the icons over workers. An alert disappears when its cause does. Things that *happened* (carrier left, penalty charged) are `Notice`s in the UI store, added in `main.ts` from sim events.
+- `main.ts` `handle(events)` is the one place sim events turn into interface reactions (news, floating amounts via `ui/floaters.ts`, auto-pause); events from `sim.dispatch()` reach it through `controller.onEvents`.
 - Clicking in the scene: `view.pick()` resolves what is under the cursor to an `EntityRef`; `view.setSelection()` outlines it.
 
 ## Workflow

@@ -12,6 +12,10 @@
   --green: #86c08a;
   --bar-top: 12px;
   --bar-height: 48px;
+  /* The day timeline under the top bar, and where everything below it starts. */
+  --timeline-height: 54px;
+  --below-bars: calc(var(--bar-top) + var(--bar-height) + var(--timeline-height) + 14px);
+  --blue: #6fa8c9;
   font-family: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   color: var(--text);
   font-size: 13px;
@@ -61,6 +65,7 @@ kbd {
 #ui {
   position: fixed;
   inset: 0;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -143,6 +148,7 @@ kbd {
 }
 
 .hud__cash {
+  display: inline-block;
   font-size: 16px;
 }
 
@@ -187,10 +193,10 @@ button:focus-visible {
 
 .side {
   position: absolute;
-  top: calc(var(--bar-top) + var(--bar-height) + 8px);
+  top: var(--below-bars);
   right: 12px;
   width: 372px;
-  max-height: calc(100% - var(--bar-top) - var(--bar-height) - 96px);
+  max-height: calc(100% - var(--below-bars) - 88px);
   display: flex;
   flex-direction: column;
   pointer-events: none;
@@ -937,11 +943,10 @@ button.row:not(:disabled):hover {
 /* ------------------------------------ onboarding, report, menu, offers */
 
 .onboarding {
-  position: absolute;
-  top: calc(var(--bar-top) + var(--bar-height) + 8px);
-  left: 12px;
   width: 300px;
+  flex: none;
   padding: 10px 12px;
+  pointer-events: auto;
   background: var(--panel);
   border: 1px solid var(--line);
   border-left: 4px solid var(--yellow);
@@ -1055,4 +1060,401 @@ button.row:not(:disabled):hover {
 
 .menu__item:hover {
   color: var(--text);
+}
+
+.menu__auto {
+  position: relative;
+}
+
+.menu__auto > summary {
+  list-style: none;
+}
+
+.menu__auto > summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu__pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  width: 250px;
+  padding: 8px 10px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.check input {
+  accent-color: var(--yellow);
+}
+
+/* ------------------------------------------------------- day timeline */
+
+.timeline {
+  position: absolute;
+  top: calc(var(--bar-top) + var(--bar-height) + 6px);
+  left: 12px;
+  right: 12px;
+  height: var(--timeline-height);
+  padding: 5px 14px 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.timeline__track {
+  position: relative;
+  min-height: 26px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+
+.timeline__shift {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(242, 194, 48, 0.13);
+  border-left: 1px solid rgba(242, 194, 48, 0.55);
+  border-right: 1px solid rgba(242, 194, 48, 0.55);
+}
+
+.timeline__shift--overtime {
+  background: repeating-linear-gradient(135deg, rgba(224, 123, 57, 0.3) 0 4px, rgba(224, 123, 57, 0.1) 4px 8px);
+  border-left: 0;
+  border-right: 1px solid var(--orange);
+}
+
+.timeline__shiftlabel {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(242, 194, 48, 0.85);
+}
+
+.timeline__past {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(10, 12, 15, 0.38);
+  border-radius: 4px 0 0 4px;
+  pointer-events: none;
+}
+
+.timeline__truck {
+  position: absolute;
+  height: 10px;
+  min-width: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: #3e7c8c;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.timeline__truck--pickup {
+  background: #e6e3dc;
+}
+
+.timeline__truck--done {
+  opacity: 0.4;
+}
+
+.timeline__truck--at-dock {
+  box-shadow: 0 0 0 1.5px var(--text);
+}
+
+.timeline__truck--waiting {
+  background: var(--orange);
+  box-shadow: 0 0 0 1.5px var(--orange);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.timeline__trucklabel {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: -2px;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.timeline__truck--pickup .timeline__trucklabel {
+  left: auto;
+  right: calc(100% + 4px);
+}
+
+.timeline__truck--waiting .timeline__trucklabel {
+  color: var(--orange);
+  font-weight: 600;
+}
+
+.timeline__mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 0;
+  border-left: 2px dashed var(--text-dim);
+}
+
+.timeline__mark--departure {
+  border-left: 2px solid var(--green);
+}
+
+.timeline__mark--risk {
+  border-left-color: var(--red);
+}
+
+.timeline__mark--rush {
+  border-left: 2px solid var(--orange);
+}
+
+.timeline__marklabel {
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
+.timeline__mark--cutoff .timeline__marklabel {
+  left: auto;
+  right: 4px;
+}
+
+.timeline__mark--departure .timeline__marklabel {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.timeline__mark--risk .timeline__marklabel {
+  color: var(--red);
+}
+
+.timeline__now {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--yellow);
+  box-shadow: 0 0 6px rgba(242, 194, 48, 0.8);
+  pointer-events: none;
+}
+
+.timeline__now::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -4px;
+  border: 5px solid transparent;
+  border-top-color: var(--yellow);
+}
+
+.timeline__hours {
+  position: relative;
+  height: 14px;
+  pointer-events: none;
+}
+
+.timeline__hour {
+  position: absolute;
+  top: 1px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(169, 175, 181, 0.6);
+}
+
+.timeline__hour:first-child {
+  transform: none;
+}
+
+.timeline__hour:last-child {
+  transform: translateX(-100%);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ------------------------------------------- left column: alerts, news */
+
+.leftcol {
+  position: absolute;
+  top: var(--below-bars);
+  left: 12px;
+  width: 300px;
+  max-height: calc(100% - var(--below-bars) - 250px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  pointer-events: auto;
+}
+
+.alert {
+  display: block;
+  width: 100%;
+  flex: none;
+  padding: 6px 10px 7px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--text-dim);
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+button.alert:hover,
+.alert__body:hover {
+  background: rgba(40, 46, 53, 0.95);
+}
+
+.alert--bad {
+  border-left-color: var(--red);
+}
+
+.alert--warn {
+  border-left-color: var(--orange);
+}
+
+.alert--info {
+  border-left-color: var(--blue);
+}
+
+.alert--good {
+  border-left-color: var(--green);
+}
+
+.alert__title {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.alert--bad .alert__title {
+  color: #f0a09f;
+}
+
+.alert__detail {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.alert--notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  opacity: 0.9;
+}
+
+.alert__body {
+  flex: 1;
+  padding: 0;
+  text-align: left;
+  font-size: 11.5px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.alert__time {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------ numbers that float up */
+
+.floaters {
+  position: fixed;
+  inset: 0;
+  /* Above the scene, under the panels. */
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.floater {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 7px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+  background: rgba(24, 28, 33, 0.82);
+  border-radius: 9px;
+  will-change: transform, opacity;
+}
+
+.floater--good {
+  color: #a5dba8;
+}
+
+.floater--bad {
+  color: #f0a09f;
+}
+
+.hud__cash--up {
+  animation: flash-up 0.9s ease-out;
+}
+
+.hud__cash--down {
+  animation: flash-down 0.9s ease-out;
+}
+
+@keyframes flash-up {
+  0% {
+    color: var(--green);
+    text-shadow: 0 0 10px var(--green);
+    transform: scale(1.12);
+  }
+}
+
+@keyframes flash-down {
+  0% {
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red);
+    transform: scale(1.12);
+  }
 }

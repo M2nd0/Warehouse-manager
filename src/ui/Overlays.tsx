@@ -2,7 +2,10 @@ import { t } from '../data/i18n';
 import { ONBOARDING_STEPS } from '../sim/systems/clients';
 import type { DailyReport, GameView } from '../sim/types';
 import { Field } from './bits';
+import { balance } from '../data/balance';
+import type { UiActions } from './controller';
 import { formatAmount, formatMoney, formatPercent } from './format';
+import type { AutoPauseKey, UiState } from './store';
 
 /** The first day's six tasks (GDD "Onboarding"); gone once all are done. */
 export function OnboardingCard({ state }: { state: GameView }) {
@@ -96,10 +99,42 @@ export function ReportCard({ report, onClose }: { report: DailyReport; onClose()
   );
 }
 
-/** New game, export and import of the save. */
-export function GameMenu({ onNew, onExport, onImport }: { onNew(): void; onExport(): void; onImport(file: File): void }) {
+const AUTO_PAUSE: AutoPauseKey[] = ['incident', 'offer', 'truck'];
+
+/** New game, export and import of the save, and when the game pauses by itself. */
+export function GameMenu({
+  ui,
+  actions,
+  onNew,
+  onExport,
+  onImport,
+}: {
+  ui: UiState;
+  actions: UiActions;
+  onNew(): void;
+  onExport(): void;
+  onImport(file: File): void;
+}) {
   return (
     <nav class="menu" aria-label={t('menu.label')}>
+      <details class="menu__auto">
+        <summary class="menu__item" data-testid="menu-autopause">
+          {t('autopause.title')}
+        </summary>
+        <div class="menu__pop">
+          {AUTO_PAUSE.map((key) => (
+            <label key={key} class="check">
+              <input
+                type="checkbox"
+                checked={ui.autoPause[key]}
+                data-testid={`autopause-${key}`}
+                onChange={(event) => actions.setAutoPause(key, event.currentTarget.checked)}
+              />
+              {t(`autopause.${key}`, { minutes: balance.alerts.truckWaitingMinutes })}
+            </label>
+          ))}
+        </div>
+      </details>
       <button type="button" class="menu__item" data-testid="menu-new" onClick={onNew}>
         {t('menu.new')}
       </button>

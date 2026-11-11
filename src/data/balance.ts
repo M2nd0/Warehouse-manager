@@ -248,6 +248,20 @@ export const balance = {
     priorities: ['attend', 'unload', 'putaway-blocked', 'pick-due', 'putaway', 'pick-ahead'],
   },
 
+  /** When the alerts column speaks up. */
+  alerts: {
+    /** A truck in the yard this long is worth stopping the game for. */
+    truckWaitingMinutes: 30,
+    /** Someone standing around this long is pointed out. */
+    idleMinutes: 30,
+    /** Minutes one order takes to pick and pack, until the day's own pace is known. */
+    defaultMinutesPerOrder: 6,
+    /** The day's pace is trusted once this many orders have been picked. */
+    paceAfterPicks: 3,
+    /** Rack positions used above this share: "storage nearly full" (GDD: chaos grows above 90 %). */
+    storageNearlyFull: 0.9,
+  },
+
   invoicing: {
     /** GDD: invoices are paid 30 days after month end. */
     paymentTermDays: 30,

@@ -47,10 +47,16 @@ export function Toolbar({ ui, actions }: { ui: UiState; actions: UiActions }) {
   );
   return (
     <div class="toolbar-wrap">
-      {ui.tool !== 'select' && (
+      {ui.tool !== 'select' ? (
         <div class="toolhint" data-testid="tool-hint">
           {ui.tool === 'rack' ? <HintLine hint={ui.hint} /> : <span>{t('demolish.hint')}</span>}
         </div>
+      ) : (
+        ui.insight !== 'none' && (
+          <div class="toolhint" data-testid="insight-legend">
+            {t(`insight.legend.${ui.insight}`)}
+          </div>
+        )
       )}
       <nav class="toolbar" aria-label={t('toolbar.label')}>
         {tool('select', t('tool.select'), 'Esc')}
@@ -72,6 +78,17 @@ export function Toolbar({ ui, actions }: { ui: UiState; actions: UiActions }) {
         >
           <span class="tool__label">{t('tool.topDown')}</span>
           <kbd class="tool__key">T</kbd>
+        </button>
+        <button
+          type="button"
+          class={`tool ${ui.insight !== 'none' ? 'tool--active' : ''}`}
+          aria-pressed={ui.insight !== 'none'}
+          data-testid="tool-insight"
+          data-mode={ui.insight}
+          onClick={actions.cycleInsight}
+        >
+          <span class="tool__label">{t(`insight.${ui.insight}`)}</span>
+          <kbd class="tool__key">O</kbd>
         </button>
       </nav>
     </div>

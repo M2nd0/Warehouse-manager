@@ -325,6 +325,8 @@ export interface Worker {
   leaving: boolean;
   /** Minutes worked after the end of the shift today. */
   overtimeToday: number;
+  /** Since when they have been standing around with nothing to do; null while busy or off. */
+  idleSinceTick: number | null;
   status: WorkerStatus;
   pos: Vec2;
   /**
@@ -458,6 +460,9 @@ export interface DayStats {
   /** Worker-minutes spent on tasks / on shift. */
   busyMinutes: number;
   shiftMinutes: number;
+  /** Pick tasks finished today and the worker-minutes they took, for the pace forecast. */
+  picksDone: number;
+  pickMinutes: number;
   /** Fees earned today (invoiced at month end). */
   revenue: Cents;
   penalties: Cents;
@@ -577,6 +582,12 @@ export interface GameState {
   ledger: LedgerEntry[];
   invoices: Invoice[];
   today: DayStats;
+  /**
+   * How often each floor cell was walked over today (row by row:
+   * `y * hall.width + x`). Kept beside `today` rather than in it so that it
+   * is not copied into every daily report.
+   */
+  heat: number[];
   reports: DailyReport[];
   settings: {
     putawayStrategy: PutawayStrategy;

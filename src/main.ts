@@ -8,7 +8,10 @@ import { SAVE_VERSION, createSim, resumeSim } from './sim';
 import type { Sim, SimEvent } from './sim';
 import { mountUi } from './ui';
 import { createController } from './ui/controller';
+import { createFloaters } from './ui/floaters';
+import { formatMoney } from './ui/format';
 import { incidentTitle } from './ui/incidentText';
+import { orderFee } from './sim/queries';
 import { formatDailyReport } from './ui/reportText';
 import { createStore } from './ui/store';
 import { clientName } from './ui/text';
@@ -60,6 +63,13 @@ async function start(): Promise<void> {
   const store = createStore();
   const controller = createController(canvas, sim, view, store);
   const save = (): Promise<unknown> => writeSave(serializeState(sim.state)).catch(() => undefined);
+  // Beside the Preact root, not inside it: Preact owns everything in there.
+  const floaters = createFloaters(document.body, view);
+  let flashId = 0;
+
+  /** Middle of a floor cell, at about hand height. */
+  const over = (cell: { x: number; y: number }, y = 1.5) => ({ x: cell.x + 0.5, y, z: cell.y + 0.5 });
+  const dockCell = () => sim.state.hall.docks[0]?.cell ?? sim.state.hall.entrance;
 
   const ui = mountUi(uiRoot, store, controller.actions, {
     onSpeed(speed) {
@@ -111,9 +121,22 @@ async function start(): Promise<void> {
     if (event.code === 'Space') event.preventDefault();
   });
 
-  /** Returns true when the game should stop for the player to look at something. */
+  /**
+   * React to what happened in the game: news for the alerts column, numbers
+   * floating up where money was made or lost, and stopping the clock for the
+   * things the player asked to be stopped for. Returns true to pause.
+   */
   function handle(events: SimEvent[]): boolean {
     let stop = false;
+    const state = sim.state;
+    const { autoPause } = store.get();
+    let latePenalty = 0;
+    let lateOrders = 0;
+    let shipped = 0;
+    let shippedLate = 0;
+    let cashDelta = 0;
+    const builtRack = events.find((e) => e.type === 'rack-built');
+
     for (const event of events) {
       switch (event.type) {
         case 'day-ended':
@@ -125,28 +148,149 @@ async function start(): Promise<void> {
           stop = true;
           break;
         case 'incident-raised': {
-          const incident = sim.state.incidents.find((i) => i.id === event.incidentId);
-          if (incident) controller.notify(t('incident.new', { title: incidentTitle(incident) }));
+          const incident = state.incidents.find((i) => i.id === event.incidentId);
+          if (!incident) break;
+          const title = incidentTitle(incident);
+          if (autoPause.incident) {
+            stop = true;
+            controller.notify(t('notice.paused.incident', { title }));
+            if (store.get().panel !== 'operations') store.set({ panel: 'operations' });
+          } else {
+            controller.notify(t('incident.new', { title }));
+          }
           break;
         }
         case 'offer-made':
-          controller.notify(t('toast.offer', { client: clientName(event.clientId) }), 'info');
+          controller.note({
+            tone: 'info',
+            text: t('toast.offer', { client: clientName(event.clientId) }),
+            tick: event.tick,
+            subject: null,
+            cell: null,
+          });
+          if (autoPause.offer) stop = true;
+          break;
+        case 'truck-waiting-long':
+          if (autoPause.truck) {
+            stop = true;
+            controller.notify(t('notice.paused.truck', { minutes: balance.alerts.truckWaitingMinutes }));
+            view.focus({ kind: 'truck', id: event.truckId });
+          }
           break;
         case 'overdraft':
-          controller.notify(t('toast.overdraft', { days: event.days, max: balance.finance.overdraftDays }));
+          controller.note({
+            tone: 'bad',
+            text: t('toast.overdraft', { days: event.days, max: balance.finance.overdraftDays }),
+            tick: event.tick,
+            subject: null,
+            cell: null,
+          });
           break;
         case 'sla-breached':
-          controller.notify(
-            t('toast.slaBreached', { client: clientName(event.clientId), days: event.days, max: balance.clients.breachDaysToLeave }),
-          );
+          controller.note({
+            tone: 'bad',
+            text: t('toast.slaBreached', {
+              client: clientName(event.clientId),
+              days: event.days,
+              max: balance.clients.breachDaysToLeave,
+            }),
+            tick: event.tick,
+            subject: null,
+            cell: null,
+          });
           break;
         case 'client-left':
-          controller.notify(t(`toast.clientLeft.${event.reason}`, { client: clientName(event.clientId) }));
+          controller.note({
+            tone: 'bad',
+            text: t(`toast.clientLeft.${event.reason}`, { client: clientName(event.clientId) }),
+            tick: event.tick,
+            subject: null,
+            cell: null,
+          });
           break;
+        case 'order-ready': {
+          // The fee is earned: show it where the order was finished.
+          const order = state.orders.find((o) => o.id === event.orderId);
+          if (!order) break;
+          const station = state.hall.stations.find((s) => s.kind === 'packing');
+          const zone = state.hall.zones.find((z) => z.kind === 'dispatch');
+          const cell = order.mode === 'each' ? station?.cell : zone?.cells[Math.floor(zone.cells.length / 2)];
+          if (cell) floaters.pop(`+${formatMoney(orderFee(state, order))}`, 'good', over(cell));
+          break;
+        }
+        case 'pallet-received': {
+          const pallet = state.pallets.get(event.palletId);
+          const client = state.clients.find((c) => c.id === pallet?.clientId);
+          const loc = pallet && pallet.locId !== 'in-transit' ? state.locations.get(pallet.locId) : undefined;
+          if (client && loc) floaters.pop(`+${formatMoney(client.contract.receivingFeePerPallet)}`, 'good', over(loc.cell));
+          break;
+        }
+        case 'order-shipped':
+          shipped++;
+          if (!event.onTime) shippedLate++;
+          break;
+        case 'pickup-missed':
+          controller.note({
+            tone: 'bad',
+            text: t('notice.pickupMissed'),
+            tick: event.tick,
+            subject: null,
+            cell: dockCell(),
+          });
+          break;
+        case 'money': {
+          const { kind, amount } = event.entry;
+          cashDelta += amount;
+          if (kind === 'penalty-late') {
+            latePenalty += amount;
+            lateOrders++;
+          } else if (kind === 'demurrage') {
+            floaters.pop(formatMoney(amount, 0), 'bad', over(dockCell(), 2.4));
+            controller.note({
+              tone: 'bad',
+              text: t('notice.demurrage', { amount: formatMoney(amount, 0) }),
+              tick: event.tick,
+              subject: null,
+              cell: dockCell(),
+            });
+          } else if (kind === 'construction' && builtRack && builtRack.type === 'rack-built') {
+            const rack = state.racks.find((r) => r.id === builtRack.rackId);
+            if (rack) floaters.pop(formatMoney(amount, 0), 'bad', over(rack, 3));
+          }
+          break;
+        }
       }
     }
+
+    if (lateOrders > 0) {
+      const amount = formatMoney(latePenalty, 0);
+      floaters.pop(amount, 'bad', over(dockCell(), 2.4));
+      controller.note({
+        tone: 'bad',
+        text: t('notice.orderLate', { count: lateOrders, amount }),
+        tick: state.tick,
+        subject: null,
+        cell: dockCell(),
+      });
+    }
+    if (shipped > 0) {
+      floaters.pop(t('float.shipped', { count: shipped }), 'good', over(dockCell(), 3));
+      controller.note({
+        tone: shippedLate > 0 ? 'warn' : 'good',
+        text:
+          shippedLate > 0
+            ? t('notice.shippedLate', { count: shipped, late: shippedLate })
+            : t('notice.shipped', { count: shipped }),
+        tick: state.tick,
+        subject: null,
+        cell: dockCell(),
+      });
+    }
+    if (cashDelta !== 0) store.set({ cashFlash: { id: ++flashId, up: cashDelta > 0 } });
     return stop;
   }
+  // What the player's own actions cause is shown the same way (never pausing for it).
+  controller.onEvents = (events) => void handle(events);
 
   let last = performance.now();
   let due = 0;
@@ -174,12 +318,13 @@ async function start(): Promise<void> {
     const simSeconds = loop.paused ? 0 : dt * Math.min(loop.speed, MAX_ANIMATION_SPEED);
     view.sync(sim.state, due, dt, simSeconds);
     view.draw(dt);
+    floaters.update(dt);
     ui.sync(sim.state, loop);
     requestAnimationFrame(frame);
   }
 
   if (resumed) controller.notify(t('toast.loaded', { day: sim.state.day + 1 }), 'info');
-  if (import.meta.env.DEV) Object.assign(window, { sim, view, store });
+  if (import.meta.env.DEV) Object.assign(window, { sim, view, store, game: { loop, handle } });
   requestAnimationFrame(frame);
 }
 

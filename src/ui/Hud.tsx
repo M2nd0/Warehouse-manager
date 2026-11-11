@@ -10,6 +10,8 @@ export interface HudProps {
   /** On time and in full so far today (0–1), or null when nothing was due yet. */
   otif: number | null;
   incidents: number;
+  /** The last change of cash: the number flashes green or red. */
+  flash: { id: number; up: boolean } | null;
   speed: number;
   paused: boolean;
   onSpeed(speed: number): void;
@@ -17,7 +19,7 @@ export interface HudProps {
 }
 
 /** Top bar: date and time, simulation speed, today's OTIF, incidents, cash. */
-export function Hud({ day, tick, cash, otif, incidents, speed, paused, onSpeed, onPause }: HudProps) {
+export function Hud({ day, tick, cash, otif, incidents, flash, speed, paused, onSpeed, onPause }: HudProps) {
   const otifTone = otif === null ? '' : otif >= 0.95 ? 'tone-good' : otif >= 0.85 ? 'tone-warn' : 'tone-bad';
   return (
     <header class="hud" data-testid="hud">
@@ -67,7 +69,12 @@ export function Hud({ day, tick, cash, otif, incidents, speed, paused, onSpeed, 
           {incidents}
         </span>
         <span class="hud__label hud__gap">{t('hud.cash')}</span>
-        <span class={`hud__value hud__cash ${cash < 0 ? 'tone-bad' : ''}`} data-testid="hud-cash">
+        <span
+          // A new key restarts the flash animation on every change of cash.
+          key={flash ? flash.id : 0}
+          class={`hud__value hud__cash ${cash < 0 ? 'tone-bad' : ''} ${flash ? (flash.up ? 'hud__cash--up' : 'hud__cash--down') : ''}`}
+          data-testid="hud-cash"
+        >
           {formatMoney(cash, 0)}
         </span>
       </div>

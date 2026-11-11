@@ -1,8 +1,10 @@
 import { balance } from '../data/balance';
 import { t } from '../data/i18n';
-import { otifToday, unresolvedIncidents } from '../sim/queries';
+import { alerts, dayTimeline, otifToday, paceForecast, unresolvedIncidents } from '../sim/queries';
 import type { GameView } from '../sim/types';
+import { Alerts } from './Alerts';
 import { ContextPanel } from './ContextPanel';
+import { Timeline } from './Timeline';
 import { GameMenu, OnboardingCard, ReportCard } from './Overlays';
 import { Hud } from './Hud';
 import { Toolbar } from './Toolbar';
@@ -27,6 +29,12 @@ export interface AppProps {
   onImport(file: File): void;
 }
 
+/** Orders that will miss today's carrier at the current pace (0 once it has left). */
+function todayAtRisk(state: GameView): number {
+  const pace = paceForecast(state);
+  return pace.departureTick < (state.day + 1) * balance.time.ticksPerDay ? pace.atRisk : 0;
+}
+
 const PANELS: PanelId[] = ['operations', 'people', 'clients', 'finance'];
 
 /** The whole overlay: top bar, the four panels, the context card, the tools. */
@@ -40,11 +48,14 @@ export function App({ state, ui, speed, paused, actions, onSpeed, onPause, onRep
         cash={state.cash}
         otif={otifToday(state)}
         incidents={unresolvedIncidents(state)}
+        flash={ui.cashFlash}
         speed={speed}
         paused={paused}
         onSpeed={onSpeed}
         onPause={onPause}
       />
+
+      <Timeline line={dayTimeline(state)} atRisk={todayAtRisk(state)} actions={actions} />
 
       <aside class={`side ${ui.panel ? 'side--open' : ''}`}>
         <nav class="tabs" aria-label={t('panel.tabs')}>
@@ -72,12 +83,15 @@ export function App({ state, ui, speed, paused, actions, onSpeed, onPause, onRep
         )}
       </aside>
 
-      <OnboardingCard state={state} />
+      <div class="leftcol">
+        <OnboardingCard state={state} />
+        <Alerts state={state} alerts={alerts(state)} notices={ui.notices} actions={actions} />
+      </div>
 
       <div class="corner">
         {ui.selection && <ContextPanel state={state} selection={ui.selection} actions={actions} />}
         <footer class="hint">{empty ? t('hud.start') : t('hud.help')}</footer>
-        <GameMenu onNew={onNew} onExport={onExport} onImport={onImport} />
+        <GameMenu ui={ui} actions={actions} onNew={onNew} onExport={onExport} onImport={onImport} />
       </div>
 
       {ui.report && !state.gameOver && <ReportCard report={ui.report} onClose={onReportClose} />}

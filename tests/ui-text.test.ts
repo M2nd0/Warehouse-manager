@@ -129,3 +129,42 @@ describe('interface state', () => {
     expect(sameRef(null, { kind: 'rack', id: 3 })).toBe(false);
   });
 });
+
+describe('alerts column wording', () => {
+  it('says what is wrong and why, for every kind of alert', async () => {
+    const { alerts } = await import('../src/sim/queries');
+    const { describeAlert } = await import('../src/ui/alertText');
+    const sim = quiet(starterSim());
+    const state = sim.state;
+    addPallet(state, 'ES-01', 'A-06-1-1');
+    while (state.tick < at(0, 14, 40)) sim.step();
+    for (let i = 0; i < 10; i++) addOrder(state, 'eshop', [['ES-01', 1]], at(0, 15));
+    state.workers[0].fatigue = 95;
+    state.offers.push({ clientId: 'wholesale', expiresDay: 3 });
+    const texts = alerts(state).map((alert) => ({ kind: alert.kind, ...describeAlert(state, alert) }));
+    const risk = texts.find((x) => x.kind === 'orders-at-risk');
+    expect(risk?.title).toMatch(/^\d+ order\(s\) will miss the 15:00 carrier$/);
+    expect(risk?.detail).toBe('10 still to pick · 1 picking · about 6 min an order · 20 min of work left');
+    expect(texts.find((x) => x.kind === 'worker-tired')?.title).toBe(`${state.workers[0].name} is exhausted (95 %)`);
+    expect(texts.find((x) => x.kind === 'offer')?.title).toBe('Domus Wholesale offers a contract');
+    for (const text of texts) expect(text.title).not.toMatch(/[{}]/);
+  });
+
+  it('timeline: trucks whose windows overlap go on separate rows', async () => {
+    const { truckRows } = await import('../src/ui/Timeline');
+    const truck = (from: number, to: number) => ({
+      id: from,
+      kind: 'inbound' as const,
+      clientId: 'eshop',
+      status: 'en-route' as const,
+      from,
+      to,
+      arrived: null,
+      docked: null,
+      left: null,
+      waiting: false,
+    });
+    expect(truckRows([truck(480, 600), truck(600, 720), truck(870, 900)])).toEqual([0, 1, 0]);
+    expect(truckRows([truck(480, 600), truck(540, 660), truck(560, 700)])).toEqual([0, 1, 2]);
+  });
+});

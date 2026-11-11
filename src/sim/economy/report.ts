@@ -18,6 +18,8 @@ export function emptyDayStats(): DayStats {
     pickupsMissed: 0,
     busyMinutes: 0,
     shiftMinutes: 0,
+    picksDone: 0,
+    pickMinutes: 0,
     revenue: 0,
     penalties: 0,
   };

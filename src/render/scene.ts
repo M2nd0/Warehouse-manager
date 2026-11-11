@@ -17,8 +17,11 @@ import {
 import type { Object3D } from 'three';
 import { balance } from '../data/balance';
 import type { Cell, EntityRef, GameView, Id } from '../sim/types';
+import { createBubbleLayer } from './bubbles';
 import { createCameraRig } from './camera';
 import { buildHall } from './hall';
+import { createInsightLayer } from './insight';
+import type { InsightMode } from './insight';
 import { createInstanced, ensureCapacity } from './instancing';
 import type { Placement } from './instancing';
 import { createBuildPreview, createMarker } from './overlay';
@@ -55,6 +58,14 @@ export interface View {
   /** Show the building tool's ghost rack and aisle colours. */
   setGhost(ghost: BuildGhost | null): void;
   setTopDown(on: boolean): void;
+  /** Which explanatory overlay to draw over the hall (key O). */
+  setInsight(mode: InsightMode): void;
+  /** Glide the camera over to something, or to a floor cell. Returns false if neither can be found. */
+  focus(ref: EntityRef | null, cell?: Cell | null): boolean;
+  /** Where a point of the world is in the window (CSS pixels); null when behind the camera. */
+  project(x: number, y: number, z: number): { x: number; y: number } | null;
+  /** Where something is in the world (the middle of its top), or null if it is not on screen. */
+  anchorOf(ref: EntityRef): { x: number; y: number; z: number } | null;
   /** Cost of the last frame, to keep an eye on the performance budget. */
   stats(): { drawCalls: number; triangles: number };
   dispose(): void;
@@ -119,6 +130,8 @@ export function createView(canvas: HTMLCanvasElement, state: GameView): View {
   const pallets = createPalletLayer(add);
   const workers = createWorkerLayer(add);
   const trucks = createTruckLayer(scene);
+  const bubbles = createBubbleLayer(scene);
+  const insight = createInsightLayer(scene);
   /** Pallets that are not in a location this frame: on a truck or on a jack. */
   const moving = new Map<Id, Placement>();
 
@@ -263,6 +276,8 @@ export function createView(canvas: HTMLCanvasElement, state: GameView): View {
       trucks.sync(next, simSeconds, moving);
       workers.sync(next, alpha, dt, moving);
       pallets.sync(next, moving);
+      bubbles.sync(next, workers.workers, dt);
+      insight.sync(next, workers.workers);
       selectionMarker.show(boxOf(selection));
       hoverMarker.show(boxOf(hover));
 
@@ -376,6 +391,25 @@ export function createView(canvas: HTMLCanvasElement, state: GameView): View {
     },
     setTopDown(on) {
       rig.setTopDown(on);
+    },
+    setInsight(mode) {
+      insight.setMode(mode);
+    },
+    focus(ref, cell) {
+      const box = boxOf(ref);
+      if (box) rig.focus(box.x, box.z);
+      else if (cell) rig.focus(cell.x + 0.5, cell.y + 0.5);
+      return box !== null || !!cell;
+    },
+    project(x, y, z) {
+      point.set(x, y, z).project(rig.camera);
+      if (point.z > 1) return null;
+      const rect = canvas.getBoundingClientRect();
+      return { x: rect.left + ((point.x + 1) / 2) * rect.width, y: rect.top + ((1 - point.y) / 2) * rect.height };
+    },
+    anchorOf(ref) {
+      const box = boxOf(ref);
+      return box ? { x: box.x, y: box.y + box.height, z: box.z } : null;
     },
     stats() {
       return { drawCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
