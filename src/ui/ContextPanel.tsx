@@ -6,6 +6,7 @@ import type { EntityRef, GameView } from '../sim/types';
 import { Bar, Field } from './bits';
 import type { UiActions } from './controller';
 import { formatAmount, formatPercent } from './format';
+import { DutyPicker } from './panels/People';
 import { activityText, clientName, durationText, skuName, truckStatusText, whenText, windowText } from './text';
 
 /**
@@ -79,6 +80,7 @@ function describe(state: GameView, ref: EntityRef, actions: UiActions): Card | n
                 </>
               }
             />
+            <Field label={t('people.duty')} value={<DutyPicker worker={worker} actions={actions} />} />
           </>
         ),
       };
@@ -156,6 +158,7 @@ function describe(state: GameView, ref: EntityRef, actions: UiActions): Card | n
             <Field label={t('context.pallet.weight')} value={t('unit.kg', { value: Math.round(palletWeight(state, pallet)) })} />
             <Field label={t('context.pallet.location')} value={where} />
             <Field label={t('context.pallet.status')} value={t(`pallet.status.${pallet.status}`)} />
+            {pallet.hold && <p class="context__lead tone-bad">{t(`pallet.hold.${pallet.hold}`)}</p>}
             <Field label={t('context.pallet.arrived')} value={whenText(state, pallet.arrivedTick)} />
             <Field
               label={t('context.pallet.expiry')}

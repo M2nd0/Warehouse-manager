@@ -58,8 +58,8 @@ export function App({ state, ui, speed, paused, actions, onSpeed, onPause }: App
         </nav>
         {ui.panel && (
           <div class="panel" data-testid={`panel-${ui.panel}`}>
-            {ui.panel === 'operations' && <OperationsPanel state={state} onSelect={actions.select} />}
-            {ui.panel === 'people' && <PeoplePanel state={state} onSelect={actions.select} />}
+            {ui.panel === 'operations' && <OperationsPanel state={state} actions={actions} />}
+            {ui.panel === 'people' && <PeoplePanel state={state} actions={actions} />}
             {ui.panel === 'clients' && <ClientsPanel state={state} />}
             {ui.panel === 'finance' && <FinancePanel state={state} />}
           </div>

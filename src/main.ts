@@ -5,6 +5,8 @@ import { createSim } from './sim';
 import type { SimEvent } from './sim';
 import { mountUi } from './ui';
 import { createController } from './ui/controller';
+import { t } from './data/i18n';
+import { incidentTitle } from './ui/incidentText';
 import { formatDailyReport } from './ui/reportText';
 import { createStore } from './ui/store';
 
@@ -60,6 +62,10 @@ window.addEventListener('keyup', (event) => {
 function handle(events: SimEvent[]): void {
   for (const event of events) {
     if (event.type === 'day-ended') console.info(formatDailyReport(event.report));
+    if (event.type === 'incident-raised') {
+      const incident = sim.state.incidents.find((i) => i.id === event.incidentId);
+      if (incident) controller.notify(t('incident.new', { title: incidentTitle(incident) }));
+    }
   }
 }
 

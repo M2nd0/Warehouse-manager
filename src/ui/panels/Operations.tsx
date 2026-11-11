@@ -1,9 +1,12 @@
 import { t } from '../../data/i18n';
 import { storageUse } from '../../sim/economy/report';
-import { labourUseToday, openOrders, otifToday, truckBoard, unresolvedIncidents } from '../../sim/queries';
+import { choiceAvailable } from '../../sim/incidents';
+import { labourUseToday, openOrders, otifToday, truckBoard } from '../../sim/queries';
 import type { EntityRef, GameView } from '../../sim/types';
 import { Badge, Empty, Section, Stat } from '../bits';
 import type { Tone } from '../bits';
+import type { UiActions } from '../controller';
+import { describeIncident } from '../incidentText';
 import { formatPercent } from '../format';
 import { activityText, clientName, truckStatusText, whenText, windowText } from '../text';
 
@@ -15,7 +18,9 @@ const orderTone = (order: Order): Tone =>
   order.late ? 'bad' : order.status === 'ready' ? 'good' : order.status === 'picking' ? 'warn' : 'plain';
 
 /** Panel 1: the truck queue, open orders, who is doing what, incidents. */
-export function OperationsPanel({ state, onSelect }: { state: GameView; onSelect(ref: EntityRef): void }) {
+export function OperationsPanel({ state, actions }: { state: GameView; actions: UiActions }) {
+  const onSelect = (ref: EntityRef): void => actions.select(ref);
+  const incidents = state.incidents.filter((i) => i.resolved === null);
   const otif = otifToday(state);
   const labour = labourUseToday(state);
   const storage = storageUse(state);
@@ -40,6 +45,48 @@ export function OperationsPanel({ state, onSelect }: { state: GameView; onSelect
           tone={storage.capacity > 0 && storage.used / storage.capacity > 0.9 ? 'warn' : 'plain'}
         />
       </div>
+
+      <Section title={t('ops.incidents')} aside={String(incidents.length)}>
+        {incidents.length === 0 && <Empty text={t('ops.noIncidents')} />}
+        {incidents.map((incident) => {
+          const text = describeIncident(state, incident);
+          const subject = incident.subject;
+          const locatable = subject && subject.kind !== 'client' && subject.kind !== 'order' && subject.kind !== 'location';
+          return (
+            <article key={incident.id} class="incident" data-testid="incident" data-kind={incident.kind}>
+              <header class="incident__head">
+                {locatable ? (
+                  <button type="button" class="incident__title link" onClick={() => onSelect(subject)}>
+                    {text.title}
+                  </button>
+                ) : (
+                  <span class="incident__title">{text.title}</span>
+                )}
+              </header>
+              <p class="incident__text">{text.text}</p>
+              <p class="incident__cause">
+                <span class="tone-dim">{t('incident.cause')}: </span>
+                {text.cause}
+              </p>
+              <div class="incident__choices">
+                {text.choices.map((choice) => (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    class="btn btn--choice"
+                    disabled={!choiceAvailable(state, incident, choice.id)}
+                    data-testid={`choice-${choice.id}`}
+                    onClick={() => actions.act({ type: 'resolve-incident', incidentId: incident.id, choiceId: choice.id })}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </div>
+              {text.deadline && <p class="note">{text.deadline}</p>}
+            </article>
+          );
+        })}
+      </Section>
 
       <Section title={t('ops.trucks')} aside={String(trucks.length)}>
         {trucks.length === 0 && <Empty text={t('ops.noTrucks')} />}
@@ -113,9 +160,6 @@ export function OperationsPanel({ state, onSelect }: { state: GameView; onSelect
         </ul>
       </Section>
 
-      <Section title={t('ops.incidents')} aside={String(unresolvedIncidents(state))}>
-        {unresolvedIncidents(state) === 0 && <Empty text={t('ops.noIncidents')} />}
-      </Section>
     </>
   );
 }

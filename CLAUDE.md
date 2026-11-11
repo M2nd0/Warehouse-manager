@@ -32,6 +32,12 @@ TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game fram
 - `sim.dispatch(action)` applies an action between ticks with the same context systems get (it can `post()` money and `emit()` events) and returns those events; a refused action changes nothing.
 - A task is a list of steps; `walk` steps name a target (`loc`, `dock`, `station`, `vehicle`, `cell`) and the path is found when the step starts. Whatever a task claims (pallet, slot, units, vehicle) is reserved when it is planned.
 
+## People and incidents
+- Performance comes from `src/sim/people.ts` (`speedFactor`, `errorFactor`, `mispickChance`): stats, fatigue above the threshold and the training week. Never read `balance.worker.*ByStat` directly elsewhere.
+- Incidents live in `src/sim/incidents/index.ts`: one exported probability function per cause, `raise…`/`maybe…` where the thing happens, and `resolve()` with every choice's consequences. The first choice is the do-nothing one and applies at the deadline. Random incidents are off in tests unless asked for (`createSim({ incidents: true })`).
+- A pallet with `hold` set (lost, damaged) is skipped by pick planning; work an incident needs done at a pallet is an `attend` task.
+- Someone dismissed or a temp whose time is up leaves only when they have no task (`worker.leaving`), so no task is ever cut short.
+
 ## Render conventions
 - One layer per kind of thing in `src/render/` (`racks.ts`, `pallets.ts`, `workers.ts`, `trucks.ts`); `scene.ts` calls their `sync(state, …)` every frame. Anything drawn many times is an `InstancedMesh` (helpers in `instancing.ts`); models are merged from coloured boxes (`parts.ts`), colours come from `palette.ts`.
 - The view runs one tick behind and animates between ticks: `main.ts` passes `alpha` (fraction of the next tick elapsed). Purely cosmetic motion the sim knows nothing about (trucks driving in and out) is advanced by `simSeconds`, which is 0 while paused.

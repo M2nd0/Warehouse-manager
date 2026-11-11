@@ -71,6 +71,8 @@ export function updateMorale(worker: Worker): void {
 /** Today's applicants: random stats, wage to match. */
 export function refreshCandidates(state: GameState): void {
   state.candidates = [];
+  // Consecutive names from a random start: no two applicants share one.
+  const firstName = randomInt(state, workerNames.length);
   for (let i = 0; i < balance.people.candidatesPerDay; i++) {
     const stats: WorkerStats = {
       speed: 1 + randomInt(state, 5),
@@ -80,7 +82,7 @@ export function refreshCandidates(state: GameState): void {
     };
     const candidate: Candidate = {
       id: state.nextId++,
-      name: workerNames[randomInt(state, workerNames.length)],
+      name: workerNames[(firstName + i) % workerNames.length],
       stats,
       wagePerMonth: marketWage(stats),
     };

@@ -855,3 +855,81 @@ button.row:not(:disabled):hover {
     min-width: 0;
   }
 }
+
+/* ------------------------------------------------- incidents and people */
+
+.incident {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: rgba(224, 96, 95, 0.12);
+  border: 1px solid rgba(224, 96, 95, 0.45);
+  border-radius: 8px;
+}
+
+.incident__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--red);
+}
+
+.incident__text {
+  margin: 4px 0;
+}
+
+.incident__cause {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.incident__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.btn--choice {
+  margin: 0;
+  height: auto;
+  min-height: 30px;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 500;
+}
+
+.btn--choice:not(:disabled):hover {
+  border-color: var(--yellow);
+}
+
+.card__note {
+  margin: -4px 0 8px;
+  font-size: 12px;
+}
+
+.card__name--plain {
+  cursor: default;
+  text-decoration: none;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+}
+
+.segmented__item {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.segmented__item--on {
+  color: #1b2026;
+  background: var(--yellow);
+}

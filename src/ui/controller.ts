@@ -1,7 +1,7 @@
 import { balance } from '../data/balance';
 import { t } from '../data/i18n';
 import type { View } from '../render/scene';
-import type { RackPlacement, Sim } from '../sim';
+import type { Action, RackPlacement, Sim } from '../sim';
 import type { Cell, EntityRef, GameView, Id } from '../sim/types';
 import { sameRef } from './store';
 import type { PanelId, Store, Tool } from './store';
@@ -29,12 +29,16 @@ export interface UiActions {
   select(ref: EntityRef | null): void;
   toggleTopDown(): void;
   demolish(rackId: Id): void;
+  /** Send an action to the game; a refusal is shown as a message. Returns whether it went through. */
+  act(action: Action): boolean;
 }
 
 export interface Controller {
   actions: UiActions;
   /** Call once per frame: keeps the ghost and the selection in step with the game. */
   update(state: GameView): void;
+  /** Show a short message above the toolbar. */
+  notify(text: string, tone?: 'error' | 'info'): void;
   dispose(): void;
 }
 
@@ -186,6 +190,13 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
       view.setTopDown(topDown);
     },
     demolish,
+    act(action) {
+      const result = sim.dispatch(action);
+      if (!result.ok) toast(t(`build.error.${result.error}`));
+      // Whatever changed, the panels should show it now, paused or not.
+      store.set({});
+      return result.ok;
+    },
   };
 
   const onPointerDown = (event: PointerEvent): void => {
@@ -230,6 +241,7 @@ export function createController(canvas: HTMLCanvasElement, sim: Sim, view: View
 
   return {
     actions,
+    notify: toast,
     update(state) {
       const { selection, tool } = store.get();
       // What was selected may have left the building.

@@ -1,9 +1,12 @@
 import {
   Color,
+  ConeGeometry,
   DirectionalLight,
   Fog,
   HemisphereLight,
   InstancedMesh,
+  Matrix4,
+  MeshBasicMaterial,
   Plane,
   Raycaster,
   Scene,
@@ -16,6 +19,7 @@ import { balance } from '../data/balance';
 import type { Cell, EntityRef, GameView, Id } from '../sim/types';
 import { createCameraRig } from './camera';
 import { buildHall } from './hall';
+import { createInstanced, ensureCapacity } from './instancing';
 import type { Placement } from './instancing';
 import { createBuildPreview, createMarker } from './overlay';
 import type { Box, BuildGhost } from './overlay';
@@ -124,6 +128,18 @@ export function createView(canvas: HTMLCanvasElement, state: GameView): View {
   scene.add(selectionMarker.object, hoverMarker.object, ghost.object);
   let selection: EntityRef | null = null;
   let hover: EntityRef | null = null;
+
+  // GDD: an incident shows as a red icon above the place it concerns.
+  let incidentIcons = createInstanced(
+    new ConeGeometry(0.32, 0.6, 4).rotateX(Math.PI),
+    new MeshBasicMaterial({ color: palette.incidentRed, depthTest: false, transparent: true }),
+    16,
+    'incident-icons',
+  );
+  incidentIcons.renderOrder = 9;
+  scene.add(incidentIcons);
+  const iconMatrix = new Matrix4();
+  let bob = 0;
   /** The state last shown; picking and outlines refer to it. */
   let shown = state;
 
@@ -249,6 +265,24 @@ export function createView(canvas: HTMLCanvasElement, state: GameView): View {
       pallets.sync(next, moving);
       selectionMarker.show(boxOf(selection));
       hoverMarker.show(boxOf(hover));
+
+      bob += dt;
+      incidentIcons = ensureCapacity(incidentIcons, next.incidents.length);
+      let icons = 0;
+      for (const incident of next.incidents) {
+        if (incident.resolved !== null) continue;
+        const box = boxOf(incident.subject);
+        const at = box
+          ? { x: box.x, y: box.y + box.height, z: box.z }
+          : incident.cell
+            ? { x: incident.cell.x + 0.5, y: 1.4, z: incident.cell.y + 0.5 }
+            : null;
+        if (!at) continue;
+        iconMatrix.makeRotationY(bob * 1.5).setPosition(at.x, at.y + 0.75 + Math.sin(bob * 3) * 0.08, at.z);
+        incidentIcons.setMatrixAt(icons++, iconMatrix);
+      }
+      incidentIcons.count = icons;
+      incidentIcons.instanceMatrix.needsUpdate = true;
     },
     draw(dt) {
       rig.update(dt);
