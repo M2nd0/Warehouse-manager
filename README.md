@@ -32,6 +32,7 @@ tests/       Vitest, runs the simulation headless
 - **M0** – project skeleton, empty 30 × 10 m hall, orbit camera, HUD
 - **M1** – phase 1 simulation without graphics: trucks → pallets → locations → orders → dispatch, daily report
 - **M2** – the state rendered: racks and pallets (instanced), workers walking their routes, pallet jack, trucks at the dock
+- **M6 (prep)** – smoke test, CI, Cloudflare Pages deploy workflow; fixed-position put-away and insolvency complete the MVP list
 - **M5** – client offers and departures, end-of-day report, autosave with export/import, six-task onboarding
 - **M4** – people (fatigue, training, hiring and dismissing, duties, morale) and five incidents with choices
 - **M3** – building and taking down racks with live aisle widths, four panels (operations, people, clients, finance), a context card for anything clicked in the scene

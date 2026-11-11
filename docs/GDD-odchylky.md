@@ -40,8 +40,8 @@ To je řetězová krize přesně podle pilíře 3, ale pro nového hráče můž
 
 ## Co z MVP chybí nebo je jinak
 
-- **Put-away s fixními pozicemi** (MVP: „bez WMS (chaos) a s fixními pozicemi“) není; je jen chaos.
-- **Game over** při záporném cashi (14 dní kontokorentu) není; cash může být záporný bez následků.
+- **Put-away s fixními pozicemi** je: jednorázově 400 € (odhad), každé SKU se drží u svých palet a ztrácí se jen 30 % toho co v chaosu. Přepíná se v panelu Provoz.
+- **Insolvence** je: 14 dní po sobě se záporným cashem na konci dne = konec hry. Úvěr není (MVP ho nechce), takže kontokorent nemá limit ani úrok.
 - **Vyjednávání smluv** není, parametry jsou pevné (odpovídá MVP).
 - **Zvuk, i18n mimo EN, Supabase** nejsou (MVP je nechce).
 - **Skóre / leaderboard** není.

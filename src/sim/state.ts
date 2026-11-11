@@ -12,7 +12,7 @@ import { seedRng } from './rng';
 import type { Client, ClientId, GameState, Vehicle, VehicleKind, Worker } from './types';
 
 /** Bump when the shape of GameState changes; saves carry it for migration. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface NewGameOptions {
   seed?: number;
@@ -161,6 +161,8 @@ export function createGame(options: NewGameOptions = {}): GameState {
     incidents: [],
     offers: [],
     onboarding: { done: 0 },
+    overdraftDays: 0,
+    gameOver: null,
     candidates: [],
     rushUntilTick: 0,
     stockCountTonight: false,
@@ -168,7 +170,7 @@ export function createGame(options: NewGameOptions = {}): GameState {
     invoices: [],
     today: emptyDayStats(),
     reports: [],
-    settings: { putawayStrategy: 'chaos', incidents: options.incidents ?? true },
+    settings: { putawayStrategy: 'chaos', fixedPositions: false, incidents: options.incidents ?? true },
   };
 
   buildHall(state, garage);

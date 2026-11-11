@@ -19,6 +19,9 @@ export type SimEvent =
   | { type: 'order-late'; tick: number; orderId: Id }
   /** A worker cannot reach where the task sends them (layout problem). */
   | { type: 'worker-blocked'; tick: number; workerId: Id }
+  /** The day ended in the red; `days` in a row so far. */
+  | { type: 'overdraft'; tick: number; days: number }
+  | { type: 'game-over'; tick: number }
   | { type: 'offer-made'; tick: number; clientId: string }
   | { type: 'client-joined'; tick: number; clientId: string }
   /** Today counted as an SLA breach for this client; `days` so far this month. */

@@ -88,6 +88,14 @@ function closeDay(state: GameState, ctx: SimContext): void {
     }
   }
 
+  // GDD: the overdraft covers 14 days in the red, then it is insolvency.
+  state.overdraftDays = state.cash < 0 ? state.overdraftDays + 1 : 0;
+  if (state.overdraftDays > 0) emit(ctx, { type: 'overdraft', tick: state.tick, days: state.overdraftDays });
+  if (state.overdraftDays >= balance.finance.overdraftDays) {
+    state.gameOver = { day: state.day };
+    emit(ctx, { type: 'game-over', tick: state.tick });
+  }
+
   const report = buildReport(state, wagesToday, Math.round(balance.rent.garagePerMonth / daysPerMonth));
   state.reports.push(report);
   emit(ctx, { type: 'day-ended', tick: state.tick, report });

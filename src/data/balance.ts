@@ -163,6 +163,18 @@ export const balance = {
     reputation: { replaced: 1, disputeLost: -2, hideCaught: -3, sentAway: -1, goodDay: 0.5, badDay: -1 },
   },
 
+  putaway: {
+    /** One-off cost of marking out fixed positions (labels, a floor plan on the wall). */
+    fixedPositionsPrice: eur(400),
+    /** GDD: fixed locations prevent lost goods — misplacing happens this share as often. */
+    fixedMisplaceFactor: 0.3,
+  },
+
+  finance: {
+    /** GDD: the overdraft covers 14 days of negative cash, then it is insolvency. */
+    overdraftDays: 14,
+  },
+
   clients: {
     /** A new client may come knocking from this day on, if the reputation is at least this. */
     offerFromDay: 2,

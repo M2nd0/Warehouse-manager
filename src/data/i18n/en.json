@@ -339,6 +339,17 @@
   "report.costs": "Wages and rent",
   "report.penalties": "Penalties and incident costs",
 
+  "build.error.game-over": "The business is insolvent. Start a new game.",
+  "putaway.title": "Put-away",
+  "putaway.chaos": "Wherever there is room",
+  "putaway.fixed": "Fixed positions",
+  "putaway.fixedBuy": "Fixed positions ({price})",
+  "putaway.note.chaos": "Pallets go to any free slot: fast sellers end up far away and things get lost.",
+  "putaway.note.fixed": "Every SKU has its place near its other pallets: shorter picks, far fewer lost pallets.",
+  "toast.overdraft": "Cash is negative: day {days} of {max} of the overdraft. After that the bank calls it in.",
+  "gameover.title": "Insolvent",
+  "gameover.text": "Cash stayed below zero for {max} days and the bank has called in the overdraft. You lasted {days} days.",
+
   "report.title": "Day {day} report",
   "report.otif": "On time, in full",
   "report.otifDetail": "{perfect} of {due} orders due",

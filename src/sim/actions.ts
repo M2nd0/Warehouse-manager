@@ -11,7 +11,7 @@ import { dismiss, hire } from './people';
 import { acceptOffer, declineOffer, reportRead } from './systems/clients';
 import type { OfferError } from './systems/clients';
 import type { DismissError, HireError } from './people';
-import type { Duty, GameState, Id, Orientation } from './types';
+import type { Duty, GameState, Id, Orientation, PutawayStrategy } from './types';
 
 /**
  * Player input. An action is applied at once, between two ticks, with the
@@ -28,6 +28,8 @@ export type Action =
   | { type: 'resolve-incident'; incidentId: Id; choiceId: string }
   | { type: 'accept-offer'; clientId: string }
   | { type: 'decline-offer'; clientId: string }
+  /** Switch how pallets are put away; the first switch to fixed positions costs their marking out. */
+  | { type: 'set-putaway'; strategy: PutawayStrategy }
   /** The player has looked at a daily report (the last onboarding task). */
   | { type: 'read-report' };
 
@@ -38,7 +40,8 @@ export type ActionError =
   | DismissError
   | ResolveError
   | OfferError
-  | 'not-enough-cash';
+  | 'not-enough-cash'
+  | 'game-over';
 
 export type ActionResult = { ok: true; events: SimEvent[] } | { ok: false; error: ActionError };
 
@@ -79,6 +82,15 @@ export function applyAction(state: GameState, ctx: SimContext, action: Action): 
       return acceptOffer(state, ctx, action.clientId);
     case 'decline-offer':
       return declineOffer(state, action.clientId);
+    case 'set-putaway': {
+      if (action.strategy === 'fixed' && !state.settings.fixedPositions) {
+        if (state.cash < balance.putaway.fixedPositionsPrice) return 'not-enough-cash';
+        post(state, ctx, 'construction', -balance.putaway.fixedPositionsPrice);
+        state.settings.fixedPositions = true;
+      }
+      state.settings.putawayStrategy = action.strategy;
+      return null;
+    }
     case 'read-report':
       reportRead(state, ctx);
       return null;

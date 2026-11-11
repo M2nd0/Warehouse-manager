@@ -532,7 +532,8 @@ export interface Candidate {
 
 // -------------------------------------------------------------- state ----
 
-export type PutawayStrategy = 'chaos';
+/** chaos – wherever there is room; fixed – every SKU has its own corner of the hall. */
+export type PutawayStrategy = 'chaos' | 'fixed';
 
 export interface GameState {
   /** Save format version. */
@@ -563,6 +564,10 @@ export interface GameState {
   incidents: Incident[];
   offers: Offer[];
   onboarding: Onboarding;
+  /** Days in a row that ended with negative cash. */
+  overdraftDays: number;
+  /** Set when the overdraft ran out: the game is over and time stands still. */
+  gameOver: { day: number } | null;
   /** Today's applicants (GDD: three a day). */
   candidates: Candidate[];
   /** "All hands to the dock": until this tick nobody picks. */
@@ -575,6 +580,8 @@ export interface GameState {
   reports: DailyReport[];
   settings: {
     putawayStrategy: PutawayStrategy;
+    /** Fixed positions have been marked out (a one-off purchase). */
+    fixedPositions: boolean;
     /** Random trouble (lost and damaged pallets, sickness, congestion) can be switched off for tests. */
     incidents: boolean;
   };

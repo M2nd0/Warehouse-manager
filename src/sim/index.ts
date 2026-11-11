@@ -62,6 +62,8 @@ function wrap(state: GameState): Sim {
 
   const step = (): SimEvent[] => {
     ctx.events = [];
+    // After insolvency time stands still.
+    if (state.gameOver) return ctx.events;
     for (const system of systems) system.step(state, ctx);
     clock.advance(state);
     return ctx.events;
@@ -79,6 +81,7 @@ function wrap(state: GameState): Sim {
     },
     dispatch(action) {
       ctx.events = [];
+      if (state.gameOver) return { ok: false, error: 'game-over' };
       const error = applyAction(state, ctx, action);
       // A task done while the game is paused (building the first rack) counts at once.
       if (!error) clients.advanceOnboarding(state, ctx);

@@ -7,7 +7,8 @@ import { Badge, Empty, Section, Stat } from '../bits';
 import type { Tone } from '../bits';
 import type { UiActions } from '../controller';
 import { describeIncident } from '../incidentText';
-import { formatPercent } from '../format';
+import { balance } from '../../data/balance';
+import { formatMoney, formatPercent } from '../format';
 import { activityText, clientName, truckStatusText, whenText, windowText } from '../text';
 
 const ORDERS_SHOWN = 12;
@@ -86,6 +87,32 @@ export function OperationsPanel({ state, actions }: { state: GameView; actions: 
             </article>
           );
         })}
+      </Section>
+
+      <Section title={t('putaway.title')}>
+        <span class="segmented" role="group" aria-label={t('putaway.title')}>
+          <button
+            type="button"
+            class={`segmented__item ${state.settings.putawayStrategy === 'chaos' ? 'segmented__item--on' : ''}`}
+            aria-pressed={state.settings.putawayStrategy === 'chaos'}
+            data-testid="putaway-chaos"
+            onClick={() => actions.act({ type: 'set-putaway', strategy: 'chaos' })}
+          >
+            {t('putaway.chaos')}
+          </button>
+          <button
+            type="button"
+            class={`segmented__item ${state.settings.putawayStrategy === 'fixed' ? 'segmented__item--on' : ''}`}
+            aria-pressed={state.settings.putawayStrategy === 'fixed'}
+            data-testid="putaway-fixed"
+            onClick={() => actions.act({ type: 'set-putaway', strategy: 'fixed' })}
+          >
+            {state.settings.fixedPositions
+              ? t('putaway.fixed')
+              : t('putaway.fixedBuy', { price: formatMoney(balance.putaway.fixedPositionsPrice, 0) })}
+          </button>
+        </span>
+        <p class="note">{t(`putaway.note.${state.settings.putawayStrategy}`)}</p>
       </Section>
 
       <Section title={t('ops.trucks')} aside={String(trucks.length)}>

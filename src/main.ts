@@ -75,7 +75,7 @@ async function start(): Promise<void> {
       loop.paused = !resumeAfterReport;
     },
     onNew() {
-      if (!window.confirm(t('menu.newConfirm'))) return;
+      if (!sim.state.gameOver && !window.confirm(t('menu.newConfirm'))) return;
       void clearSave()
         .catch(() => undefined)
         .then(() => window.location.assign(`${window.location.pathname}?new`));
@@ -131,6 +131,9 @@ async function start(): Promise<void> {
         }
         case 'offer-made':
           controller.notify(t('toast.offer', { client: clientName(event.clientId) }), 'info');
+          break;
+        case 'overdraft':
+          controller.notify(t('toast.overdraft', { days: event.days, max: balance.finance.overdraftDays }));
           break;
         case 'sla-breached':
           controller.notify(

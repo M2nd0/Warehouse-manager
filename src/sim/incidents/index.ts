@@ -36,8 +36,9 @@ type WorkerLike = GameView['workers'][number];
 // ------------------------------------------------------- probabilities ----
 
 /** Chance that a pallet being put away ends up where the records do not say. */
-export function misplaceChance(worker: WorkerLike, day: number): number {
-  return I.misplaceChanceByStat[statIndex(worker.stats.accuracy)] * errorFactor(worker, day);
+export function misplaceChance(worker: WorkerLike, day: number, fixedPositions = false): number {
+  const system = fixedPositions ? balance.putaway.fixedMisplaceFactor : 1;
+  return I.misplaceChanceByStat[statIndex(worker.stats.accuracy)] * errorFactor(worker, day) * system;
 }
 
 /** Chance of damaging a pallet while lifting it: care, tiredness and how fragile the goods are. */
@@ -114,7 +115,8 @@ export function raiseWrongShipment(state: GameState, ctx: SimContext, clientId: 
 /** Putting a pallet away: it may go astray without anyone noticing yet. */
 export function maybeMisplace(state: GameState, worker: Worker, pallet: Pallet): void {
   if (!state.settings.incidents || pallet.hold !== null) return;
-  if (chance(state, misplaceChance(worker, state.day))) pallet.hold = 'lost';
+  const fixed = state.settings.putawayStrategy === 'fixed';
+  if (chance(state, misplaceChance(worker, state.day, fixed))) pallet.hold = 'lost';
 }
 
 /** A picker could not find the goods: the misplaced pallet comes to light. */

@@ -1,3 +1,4 @@
+import { balance } from '../data/balance';
 import { t } from '../data/i18n';
 import { otifToday, unresolvedIncidents } from '../sim/queries';
 import type { GameView } from '../sim/types';
@@ -79,7 +80,19 @@ export function App({ state, ui, speed, paused, actions, onSpeed, onPause, onRep
         <GameMenu onNew={onNew} onExport={onExport} onImport={onImport} />
       </div>
 
-      {ui.report && <ReportCard report={ui.report} onClose={onReportClose} />}
+      {ui.report && !state.gameOver && <ReportCard report={ui.report} onClose={onReportClose} />}
+
+      {state.gameOver && (
+        <div class="modal" role="alertdialog" aria-label={t('gameover.title')} data-testid="game-over">
+          <div class="modal__card">
+            <h2 class="modal__title tone-bad">{t('gameover.title')}</h2>
+            <p>{t('gameover.text', { max: balance.finance.overdraftDays, days: state.gameOver.day + 1 })}</p>
+            <button type="button" class="btn btn--primary" data-testid="game-over-new" onClick={onNew}>
+              {t('menu.new')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {ui.toast && (
         <div class={`toast toast--${ui.toast.tone}`} role="status" data-testid="toast">
