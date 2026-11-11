@@ -4,7 +4,7 @@ import { SAVE_VERSION, resumeSim } from '../src/sim';
 import type { SimEvent } from '../src/sim';
 import { ledgerTotal } from '../src/sim/economy/ledger';
 import { TICKS_PER_DAY } from '../src/sim/time';
-import { deserializeState, serializeState } from '../src/save/serialize';
+import { deserializeState, readState, serializeState } from '../src/save/serialize';
 import { formatDailyReport } from '../src/ui/reportText';
 import { starterSim, violations } from './helpers';
 
@@ -114,6 +114,16 @@ describe('determinism', () => {
     const b = restored.run(2 * TICKS_PER_DAY);
     expect(serializeState(restored.state)).toBe(serializeState(original.state));
     expect(b).toEqual(a);
+  });
+
+  it('a damaged file or a save of another version is turned away', () => {
+    const sim = starterSim({ seed: 3 });
+    const json = serializeState(sim.state);
+    expect(readState(json, SAVE_VERSION)?.tick).toBe(0);
+    expect(readState(json, SAVE_VERSION + 1)).toBeNull();
+    expect(readState(json.slice(0, 200), SAVE_VERSION)).toBeNull();
+    expect(readState('{"hello":1}', SAVE_VERSION)).toBeNull();
+    expect(readState('null', SAVE_VERSION)).toBeNull();
   });
 
   it('a save is plain JSON', () => {

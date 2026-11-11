@@ -14,6 +14,10 @@ export interface LoopState {
 export interface UiHandlers {
   onSpeed(speed: number): void;
   onPause(): void;
+  onReportClose(): void;
+  onNew(): void;
+  onExport(): void;
+  onImport(file: File): void;
 }
 
 export interface Ui {
@@ -52,8 +56,7 @@ export function mountUi(root: HTMLElement, store: Store, actions: UiActions, han
           speed={loop.speed}
           paused={loop.paused}
           actions={actions}
-          onSpeed={handlers.onSpeed}
-          onPause={handlers.onPause}
+          {...handlers}
         />,
         root,
       );

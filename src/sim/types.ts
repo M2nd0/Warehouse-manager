@@ -213,7 +213,11 @@ export interface Client {
     lines: number;
   };
   /** SLA performance in the current month. */
-  month: { shipped: number; late: number; wrong: number };
+  month: { shipped: number; late: number; wrong: number; breachDays: number };
+  /** Orders due today, and how many of them were late or wrong. */
+  today: { due: number; bad: number };
+  /** No offer before this day (just left, or was turned down). */
+  nextOfferDay: number;
 }
 
 // ------------------------------------------------------------ orders ----
@@ -507,6 +511,17 @@ export interface Incident {
   resolved: { choiceId: string; tick: number; byDeadline: boolean } | null;
 }
 
+/** A client asking for a contract; stands until `expiresDay`. */
+export interface Offer {
+  clientId: ClientId;
+  expiresDay: number;
+}
+
+/** The first day's guided tasks (GDD "Onboarding"): how many of the six are done. */
+export interface Onboarding {
+  done: number;
+}
+
 /** Someone who could be hired today. */
 export interface Candidate {
   id: Id;
@@ -546,6 +561,8 @@ export interface GameState {
   vehicles: Vehicle[];
   tasks: Task[];
   incidents: Incident[];
+  offers: Offer[];
+  onboarding: Onboarding;
   /** Today's applicants (GDD: three a day). */
   candidates: Candidate[];
   /** "All hands to the dock": until this tick nobody picks. */

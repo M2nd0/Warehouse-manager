@@ -8,6 +8,7 @@ import type { RackPlacement, RackPreview } from './layout';
 import { createGame } from './state';
 import type { NewGameOptions } from './state';
 import * as agents from './systems/agents';
+import * as clients from './systems/clients';
 import * as clock from './systems/clock';
 import * as equipment from './systems/equipment';
 import * as finance from './systems/finance';
@@ -42,7 +43,7 @@ export interface Sim {
 /**
  * Order of systems within a tick (GDD "Simulační tick"):
  * time → trucks → orders → task planner → agents → equipment →
- * incidents → finance.
+ * incidents → clients → finance.
  */
 const systems: readonly { step(state: GameState, ctx: SimContext): void }[] = [
   clock,
@@ -52,6 +53,7 @@ const systems: readonly { step(state: GameState, ctx: SimContext): void }[] = [
   agents,
   equipment,
   incidents,
+  clients,
   finance,
 ];
 
@@ -78,6 +80,8 @@ function wrap(state: GameState): Sim {
     dispatch(action) {
       ctx.events = [];
       const error = applyAction(state, ctx, action);
+      // A task done while the game is paused (building the first rack) counts at once.
+      if (!error) clients.advanceOnboarding(state, ctx);
       return error ? { ok: false, error } : { ok: true, events: ctx.events };
     },
     previewRack(placement) {

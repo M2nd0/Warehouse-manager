@@ -19,6 +19,10 @@ export type SimEvent =
   | { type: 'order-late'; tick: number; orderId: Id }
   /** A worker cannot reach where the task sends them (layout problem). */
   | { type: 'worker-blocked'; tick: number; workerId: Id }
+  | { type: 'offer-made'; tick: number; clientId: string }
+  | { type: 'client-joined'; tick: number; clientId: string }
+  | { type: 'client-left'; tick: number; clientId: string; reason: 'sla' | 'reputation' }
+  | { type: 'onboarding-step'; tick: number; done: number }
   | { type: 'incident-raised'; tick: number; incidentId: Id }
   | { type: 'incident-resolved'; tick: number; incidentId: Id; choiceId: string }
   | { type: 'worker-hired'; tick: number; workerId: Id }

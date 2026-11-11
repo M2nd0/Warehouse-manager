@@ -6,7 +6,7 @@
 TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game framework.
 
 ## Commands
-- `npm run dev` – dev server; `?seed=42` fixes the game, `?starter` begins with a ready-made rack layout instead of an empty, paused hall. Dev builds expose `window.sim`, `window.view` and `window.store`.
+- `npm run dev` – dev server. The game autosaves to IndexedDB at the end of every in-game day and continues from there; `?new` starts over, `?seed=42` starts a fixed game, `?starter` a game with a ready-made rack layout and both clients. Dev builds expose `window.sim`, `window.view` and `window.store`.
 - `npm run test` – Vitest (`tests/`, runs in Node)
 - `npm run typecheck` – app + a second pass that compiles `src/sim` and `src/data` without DOM/Node typings
 - `npm run lint` – ESLint (also forbids Three.js/UI imports, `Math.random` and `Date.now` inside `src/sim`)
@@ -37,6 +37,9 @@ TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game fram
 - Incidents live in `src/sim/incidents/index.ts`: one exported probability function per cause, `raise…`/`maybe…` where the thing happens, and `resolve()` with every choice's consequences. The first choice is the do-nothing one and applies at the deadline. Random incidents are off in tests unless asked for (`createSim({ incidents: true })`).
 - A pallet with `hold` set (lost, damaged) is skipped by pick planning; work an incident needs done at a pallet is an `attend` task.
 - Someone dismissed or a temp whose time is up leaves only when they have no task (`worker.leaving`), so no task is ever cut short.
+
+## Saving
+- `src/save/serialize.ts` turns GameState into JSON and back (pure, tested); `src/save/storage.ts` is the IndexedDB slot. Bump `SAVE_VERSION` in `src/sim/state.ts` whenever the shape of GameState changes: `readState()` turns saves of another version away rather than loading them broken.
 
 ## Render conventions
 - One layer per kind of thing in `src/render/` (`racks.ts`, `pallets.ts`, `workers.ts`, `trucks.ts`); `scene.ts` calls their `sync(state, …)` every frame. Anything drawn many times is an `InstancedMesh` (helpers in `instancing.ts`); models are merged from coloured boxes (`parts.ts`), colours come from `palette.ts`.

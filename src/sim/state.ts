@@ -12,13 +12,13 @@ import { seedRng } from './rng';
 import type { Client, ClientId, GameState, Vehicle, VehicleKind, Worker } from './types';
 
 /** Bump when the shape of GameState changes; saves carry it for migration. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface NewGameOptions {
   seed?: number;
   /** Staff on day one (default: GDD start, one warehouseman). */
   workers?: number;
-  /** Clients with a running contract (default: all in the catalogue). */
+  /** Clients with a running contract from day one (default: all in the catalogue). The others may make an offer later. */
   clients?: ClientId[];
   /** Racks already standing when the game starts (default: none — the player builds). */
   racks?: RackPlacement[];
@@ -57,12 +57,12 @@ function buildHall(state: GameState, spec: HallSpec): void {
   }
 }
 
-function createClient(spec: ClientSpec, startDay: number): Client {
+function createClient(spec: ClientSpec, startDay: number, active: boolean): Client {
   const terms = balance.contracts[spec.kind];
   return {
     id: spec.id,
     kind: spec.kind,
-    active: true,
+    active,
     contract: {
       storageFeePerPalletMonth: terms.storageFeePerPalletMonth,
       receivingFeePerPallet: terms.receivingFeePerPallet,
@@ -86,7 +86,9 @@ function createClient(spec: ClientSpec, startDay: number): Client {
       targetPallets: { ...spec.targetPallets },
     },
     unbilled: { palletDays: 0, storageFees: 0, palletsReceived: 0, lines: 0 },
-    month: { shipped: 0, late: 0, wrong: 0 },
+    month: { shipped: 0, late: 0, wrong: 0, breachDays: 0 },
+    today: { due: 0, bad: 0 },
+    nextOfferDay: 0,
   };
 }
 
@@ -157,6 +159,8 @@ export function createGame(options: NewGameOptions = {}): GameState {
     vehicles: [],
     tasks: [],
     incidents: [],
+    offers: [],
+    onboarding: { done: 0 },
     candidates: [],
     rushUntilTick: 0,
     stockCountTonight: false,
@@ -171,11 +175,8 @@ export function createGame(options: NewGameOptions = {}): GameState {
   for (const rack of options.racks ?? []) addRack(state, rack);
 
   const clientIds = options.clients ?? clientCatalog.map((c) => c.id);
-  for (const spec of clientCatalog) {
-    if (clientIds.includes(spec.id)) state.clients.push(createClient(spec, 0));
-  }
+  for (const spec of clientCatalog) state.clients.push(createClient(spec, 0, clientIds.includes(spec.id)));
   for (const sku of skuCatalog) {
-    if (!clientIds.includes(sku.clientId)) continue;
     state.skus.set(sku.id, { ...sku });
     state.inventory.set(sku.id, { stored: 0, allocated: 0 });
   }

@@ -933,3 +933,126 @@ button.row:not(:disabled):hover {
   color: #1b2026;
   background: var(--yellow);
 }
+
+/* ------------------------------------ onboarding, report, menu, offers */
+
+.onboarding {
+  position: absolute;
+  top: calc(var(--bar-top) + var(--bar-height) + 8px);
+  left: 12px;
+  width: 300px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--yellow);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.onboarding__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.onboarding__lead {
+  margin: 2px 0 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.onboarding__list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.onboarding__list li {
+  padding: 1px 0;
+}
+
+.onboarding__list .is-done {
+  color: var(--green);
+  text-decoration: line-through;
+}
+
+.onboarding__list .is-next {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 12, 15, 0.45);
+  pointer-events: auto;
+}
+
+.modal__card {
+  width: 460px;
+  max-width: calc(100% - 24px);
+  padding: 18px 20px 20px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.modal__title {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.modal__card .stats {
+  margin-bottom: 10px;
+}
+
+.modal__card .stat__value {
+  font-size: 14px;
+}
+
+.btn--primary {
+  color: #1b2026;
+  background: var(--yellow);
+  border-color: var(--yellow);
+}
+
+.modal__card .btn--primary {
+  width: 100%;
+  margin-top: 14px;
+  height: 34px;
+}
+
+.btnrow {
+  display: flex;
+  gap: 8px;
+}
+
+.card--offer {
+  border: 1px solid rgba(242, 194, 48, 0.5);
+}
+
+.menu {
+  display: flex;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.menu__item {
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.menu__item:hover {
+  color: var(--text);
+}

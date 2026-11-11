@@ -24,3 +24,18 @@ export function deserializeState(json: string): GameState {
     isSerializedMap(value) ? new Map(value.$map) : value,
   ) as GameState;
 }
+
+/**
+ * Read a save, or null if the text is not one this version of the game can
+ * continue (damaged file, or written by a different save format).
+ */
+export function readState(json: string, version: number): GameState | null {
+  try {
+    const state = deserializeState(json);
+    const sound =
+      typeof state === 'object' && state !== null && state.version === version && state.pallets instanceof Map;
+    return sound ? state : null;
+  } catch {
+    return null;
+  }
+}

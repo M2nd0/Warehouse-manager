@@ -82,6 +82,8 @@ function markLate(state: GameState, ctx: SimContext): void {
     state.today.ordersLate++;
     const client = state.clients.find((c) => c.id === order.clientId);
     if (client) {
+      client.today.due++;
+      client.today.bad++;
       client.month.late++;
       state.today.penalties += client.contract.latePenalty;
       post(state, ctx, 'penalty-late', -client.contract.latePenalty, client.id);

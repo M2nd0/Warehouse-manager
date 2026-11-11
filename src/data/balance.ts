@@ -163,6 +163,22 @@ export const balance = {
     reputation: { replaced: 1, disputeLost: -2, hideCaught: -3, sentAway: -1, goodDay: 0.5, badDay: -1 },
   },
 
+  clients: {
+    /** A new client may come knocking from this day on, if the reputation is at least this. */
+    offerFromDay: 2,
+    offerMinReputation: 40,
+    /** How long an offer stands; how long a client stays away after being turned down / after leaving. */
+    offerValidDays: 3,
+    declineCooldownDays: 7,
+    returnAfterDays: 30,
+    /** A day counts as an SLA breach when more than this share of a client's orders were late or wrong. */
+    breachShare: 0.2,
+    /** GDD: a client leaves after 3 SLA breaches in a month. */
+    breachDaysToLeave: 3,
+    /** GDD: at the end of the contract the client stays only if the reputation is at least this. */
+    renewMinReputation: 40,
+  },
+
   vehicles: {
     'hand-pallet-jack': {
       /** GDD */

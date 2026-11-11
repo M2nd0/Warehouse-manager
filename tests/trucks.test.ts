@@ -64,7 +64,7 @@ describe('trucks', () => {
   it('clients only top up what is missing, the most depleted SKU first', () => {
     const sim = starterSim({ clients: ['wholesale'] });
     const { state } = sim;
-    state.clients[0].profile.ordersPerDay = 0;
+    for (const client of state.clients) client.profile.ordersPerDay = 0;
     // Full stock of everything except WS-03 (1 of 3) and WS-01 (3 of 4).
     const slots = [...state.locations.values()].filter((l) => l.kind === 'rack' && l.level === 1);
     const stock: Record<string, number> = { 'WS-01': 3, 'WS-02': 4, 'WS-03': 1, 'WS-04': 3 };

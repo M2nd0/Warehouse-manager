@@ -2,6 +2,7 @@ import { t } from '../data/i18n';
 import { otifToday, unresolvedIncidents } from '../sim/queries';
 import type { GameView } from '../sim/types';
 import { ContextPanel } from './ContextPanel';
+import { GameMenu, OnboardingCard, ReportCard } from './Overlays';
 import { Hud } from './Hud';
 import { Toolbar } from './Toolbar';
 import type { UiActions } from './controller';
@@ -19,12 +20,16 @@ export interface AppProps {
   actions: UiActions;
   onSpeed(speed: number): void;
   onPause(): void;
+  onReportClose(): void;
+  onNew(): void;
+  onExport(): void;
+  onImport(file: File): void;
 }
 
 const PANELS: PanelId[] = ['operations', 'people', 'clients', 'finance'];
 
 /** The whole overlay: top bar, the four panels, the context card, the tools. */
-export function App({ state, ui, speed, paused, actions, onSpeed, onPause }: AppProps) {
+export function App({ state, ui, speed, paused, actions, onSpeed, onPause, onReportClose, onNew, onExport, onImport }: AppProps) {
   const empty = state.racks.length === 0 && state.tick === 0;
   return (
     <>
@@ -60,16 +65,21 @@ export function App({ state, ui, speed, paused, actions, onSpeed, onPause }: App
           <div class="panel" data-testid={`panel-${ui.panel}`}>
             {ui.panel === 'operations' && <OperationsPanel state={state} actions={actions} />}
             {ui.panel === 'people' && <PeoplePanel state={state} actions={actions} />}
-            {ui.panel === 'clients' && <ClientsPanel state={state} />}
+            {ui.panel === 'clients' && <ClientsPanel state={state} actions={actions} />}
             {ui.panel === 'finance' && <FinancePanel state={state} />}
           </div>
         )}
       </aside>
 
+      <OnboardingCard state={state} />
+
       <div class="corner">
         {ui.selection && <ContextPanel state={state} selection={ui.selection} actions={actions} />}
         <footer class="hint">{empty ? t('hud.start') : t('hud.help')}</footer>
+        <GameMenu onNew={onNew} onExport={onExport} onImport={onImport} />
       </div>
+
+      {ui.report && <ReportCard report={ui.report} onClose={onReportClose} />}
 
       {ui.toast && (
         <div class={`toast toast--${ui.toast.tone}`} role="status" data-testid="toast">

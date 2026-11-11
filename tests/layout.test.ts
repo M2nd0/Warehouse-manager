@@ -101,7 +101,7 @@ describe('hall and racks', () => {
     const sim = createSim();
     const built = sim.dispatch({ type: 'build-rack', x: 10, y: 4, orientation: 'h' });
     const rackId = sim.state.racks[0].id;
-    expect(built).toMatchObject({ ok: true, events: [{ type: 'money' }, { type: 'rack-built', tick: 0, rackId }] });
+    expect(built).toMatchObject({ ok: true, events: [{ type: 'money' }, { type: 'rack-built', tick: 0, rackId }, { type: 'onboarding-step' }] });
     expect(sim.dispatch({ type: 'demolish-rack', rackId })).toMatchObject({
       ok: true,
       events: [{ type: 'money' }, { type: 'rack-demolished', tick: 0, rackId }],

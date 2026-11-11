@@ -31,7 +31,11 @@ describe('orders', () => {
     const everything = ['ES-01', 'ES-02', 'ES-03', 'ES-04', 'ES-05', 'ES-06'];
     stock(sim.state, Array.from({ length: 36 }, (_, i) => everything[i % everything.length]));
     const days = 8;
-    sim.run(days * TICKS_PER_DAY);
+    for (let day = 0; day < days; day++) {
+      sim.run(TICKS_PER_DAY);
+      // Nobody ships anything here; keep the client from walking out over it.
+      for (const client of sim.state.clients) client.month.breachDays = 0;
+    }
     const created = sim.state.reports.reduce((n, r) => n + r.ordersCreated, 0);
     const perDay = created / days;
     expect(perDay).toBeGreaterThan(balance.contracts.eshop.ordersPerDay * 0.8);

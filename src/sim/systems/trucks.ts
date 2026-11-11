@@ -245,6 +245,8 @@ function shipOrder(state: GameState, ctx: SimContext, order: Order): void {
     if (!wrong) today.ordersPerfect++;
   }
   if (client) {
+    if (onTime) client.today.due++;
+    if (onTime && wrong) client.today.bad++;
     client.month.shipped++;
     client.unbilled.lines += order.lines.length;
     today.revenue += order.lines.length * client.contract.pickFeePerLine;

@@ -1,5 +1,5 @@
 import type { AisleRating, PlacementError } from '../sim';
-import type { EntityRef, Orientation } from '../sim/types';
+import type { DailyReport, EntityRef, Orientation } from '../sim/types';
 
 /**
  * State of the interface itself (which tool is in hand, what is selected,
@@ -31,6 +31,8 @@ export interface UiState {
   topDown: boolean;
   toast: Toast | null;
   hint: BuildHint | null;
+  /** The daily report on show (the game waits while it is). */
+  report: DailyReport | null;
 }
 
 export interface Store {
@@ -49,6 +51,7 @@ export function createStore(): Store {
     topDown: false,
     toast: null,
     hint: null,
+    report: null,
   };
   const listeners = new Set<() => void>();
   return {

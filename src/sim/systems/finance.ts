@@ -84,7 +84,7 @@ function closeDay(state: GameState, ctx: SimContext): void {
         });
       }
       client.unbilled = { palletDays: 0, storageFees: 0, palletsReceived: 0, lines: 0 };
-      client.month = { shipped: 0, late: 0, wrong: 0 };
+      client.month = { shipped: 0, late: 0, wrong: 0, breachDays: 0 };
     }
   }
 

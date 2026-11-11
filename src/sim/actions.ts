@@ -8,6 +8,8 @@ import type { ResolveError } from './incidents';
 import { addRack, checkDemolition, previewRack, removeRack } from './layout';
 import type { DemolitionError, PlacementError } from './layout';
 import { dismiss, hire } from './people';
+import { acceptOffer, declineOffer, reportRead } from './systems/clients';
+import type { OfferError } from './systems/clients';
 import type { DismissError, HireError } from './people';
 import type { Duty, GameState, Id, Orientation } from './types';
 
@@ -23,7 +25,11 @@ export type Action =
   | { type: 'hire'; candidateId: Id }
   | { type: 'dismiss'; workerId: Id }
   | { type: 'set-duty'; workerId: Id; duty: Duty }
-  | { type: 'resolve-incident'; incidentId: Id; choiceId: string };
+  | { type: 'resolve-incident'; incidentId: Id; choiceId: string }
+  | { type: 'accept-offer'; clientId: string }
+  | { type: 'decline-offer'; clientId: string }
+  /** The player has looked at a daily report (the last onboarding task). */
+  | { type: 'read-report' };
 
 export type ActionError =
   | PlacementError
@@ -31,6 +37,7 @@ export type ActionError =
   | HireError
   | DismissError
   | ResolveError
+  | OfferError
   | 'not-enough-cash';
 
 export type ActionResult = { ok: true; events: SimEvent[] } | { ok: false; error: ActionError };
@@ -68,5 +75,12 @@ export function applyAction(state: GameState, ctx: SimContext, action: Action): 
     }
     case 'resolve-incident':
       return resolve(state, ctx, action.incidentId, action.choiceId);
+    case 'accept-offer':
+      return acceptOffer(state, ctx, action.clientId);
+    case 'decline-offer':
+      return declineOffer(state, action.clientId);
+    case 'read-report':
+      reportRead(state, ctx);
+      return null;
   }
 }

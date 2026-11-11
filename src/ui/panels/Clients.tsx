@@ -1,12 +1,14 @@
 import { t } from '../../data/i18n';
 import { contractEndDay, palletsOf, unbilledOf } from '../../sim/queries';
 import type { GameView } from '../../sim/types';
+import { balance } from '../../data/balance';
 import { Bar, Field, Section } from '../bits';
+import type { UiActions } from '../controller';
 import { formatClock, formatMoney } from '../format';
 import { clientName } from '../text';
 
 /** Panel 3: reputation and, for every client, the contract and how it is being kept this month. */
-export function ClientsPanel({ state }: { state: GameView }) {
+export function ClientsPanel({ state, actions }: { state: GameView; actions: UiActions }) {
   return (
     <>
       <Section title={t('clients.reputation')} aside={t('clients.reputationValue', { value: Math.round(state.reputation) })}>
@@ -17,12 +19,46 @@ export function ClientsPanel({ state }: { state: GameView }) {
         />
       </Section>
 
-      {state.clients.map((client) => {
+      {state.offers.length > 0 && (
+        <Section title={t('clients.offers')} aside={String(state.offers.length)}>
+          {state.offers.map((offer) => {
+            const client = state.clients.find((c) => c.id === offer.clientId);
+            if (!client) return null;
+            const pallets = Object.values(client.profile.targetPallets).reduce((sum, n) => sum + n, 0);
+            return (
+              <article key={offer.clientId} class="card card--offer" data-testid="offer">
+                <p class="incident__text">
+                  {t('clients.offerText', { client: clientName(client.id), pallets, orders: client.profile.ordersPerDay })}
+                </p>
+                <Field
+                  label={t('clients.fees')}
+                  value={t('clients.feesValue', {
+                    storage: formatMoney(client.contract.storageFeePerPalletMonth),
+                    receiving: formatMoney(client.contract.receivingFeePerPallet),
+                    line: formatMoney(client.contract.pickFeePerLine),
+                  })}
+                />
+                <p class="note">{t('clients.offerUntil', { day: offer.expiresDay })}</p>
+                <div class="btnrow">
+                  <button type="button" class="btn btn--primary" data-testid="offer-accept" onClick={() => actions.act({ type: 'accept-offer', clientId: client.id })}>
+                    {t('clients.accept')}
+                  </button>
+                  <button type="button" class="btn" data-testid="offer-decline" onClick={() => actions.act({ type: 'decline-offer', clientId: client.id })}>
+                    {t('clients.decline')}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </Section>
+      )}
+
+      {state.clients.filter((client) => client.active || palletsOf(state, client.id) > 0).map((client) => {
         const { contract, month, profile } = client;
         const target = Object.values(profile.targetPallets).reduce((sum, n) => sum + n, 0);
         const breaches = month.late + month.wrong;
         return (
-          <Section key={client.id} title={clientName(client.id)} aside={t(`client.kind.${client.kind}`)}>
+          <Section key={client.id} title={clientName(client.id)} aside={client.active ? t(`client.kind.${client.kind}`) : t('clients.noContract')}>
             <div class="grid3">
               <div class="stat">
                 <span class="stat__value">{month.shipped}</span>
@@ -41,6 +77,11 @@ export function ClientsPanel({ state }: { state: GameView }) {
               label={t('clients.sla')}
               value={t('clients.slaValue', { hours: contract.slaHours, cutoff: formatClock(contract.cutoffMinute) })}
               tone={breaches > 0 ? 'warn' : 'plain'}
+            />
+            <Field
+              label={t('clients.breachDays')}
+              value={t('clients.breachDaysValue', { count: month.breachDays, max: balance.clients.breachDaysToLeave })}
+              tone={month.breachDays > 0 ? 'bad' : 'plain'}
             />
             <Field label={t('clients.stock')} value={t('clients.stockValue', { pallets: palletsOf(state, client.id), target })} />
             <Field label={t('clients.unbilled')} value={formatMoney(unbilledOf(state, client.id))} />
