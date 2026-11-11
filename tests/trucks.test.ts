@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { balance } from '../src/data/balance';
-import { createSim } from '../src/sim';
+import { createSim, resumeSim } from '../src/sim';
 import * as orders from '../src/sim/systems/orders';
 import * as trucks from '../src/sim/systems/trucks';
 import type { GameState, Truck } from '../src/sim/types';
@@ -182,7 +182,7 @@ describe('trucks', () => {
     expect(violations(state)).toEqual([]);
   });
 
-  it('a wrong item costs the contract penalty when the order ships', () => {
+  it('a wrong item brings a complaint to decide about; left alone, the penalty is paid a day later', () => {
     const { state } = quiet(starterSim({ workers: 0 }));
     state.tick = at(0, 15);
     const order = addOrder(state, 'eshop', [['ES-01', 0]], at(0, 15));
@@ -193,8 +193,22 @@ describe('trucks', () => {
     trucks.step(state, contextFor(state));
 
     const penalty = state.clients[0].contract.errorPenalty;
-    expect(state.ledger).toEqual([{ tick: state.tick, kind: 'penalty-error', amount: -penalty, clientId: 'eshop' }]);
+    expect(state.ledger).toEqual([]);
     expect(state.today).toMatchObject({ ordersOnTime: 1, ordersPerfect: 0 });
+    expect(state.incidents).toHaveLength(1);
+    expect(state.incidents[0]).toMatchObject({
+      kind: 'wrong-shipment',
+      subject: { kind: 'client', id: 'eshop' },
+      params: { orderId: order.id, penalty },
+      resolved: null,
+    });
+    expect(state.incidents[0].choices.map((c) => c.id)).toEqual(['pay', 'replace', 'dispute']);
+
+    const sim = resumeSim(state);
+    sim.run(24 * 60 + 1);
+    expect(state.ledger.filter((e) => e.kind === 'incident')).toEqual([
+      { tick: at(1, 15), kind: 'incident', amount: -penalty, clientId: 'eshop' },
+    ]);
   });
 
   it('a carrier that never got the dock leaves empty and the orders are late', () => {

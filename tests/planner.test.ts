@@ -34,6 +34,8 @@ function dockedTruck(state: GameState, count: number): Truck {
       status: 'inbound',
       taskId: null,
       orderId: null,
+      hold: null,
+      attendFor: null,
       arrivedTick: state.tick,
       expiryDay: null,
     };

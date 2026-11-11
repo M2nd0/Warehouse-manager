@@ -3,9 +3,13 @@ import { emit, navOf } from './context';
 import type { SimContext } from './context';
 import { post } from './economy/ledger';
 import type { SimEvent } from './events';
+import { resolve } from './incidents';
+import type { ResolveError } from './incidents';
 import { addRack, checkDemolition, previewRack, removeRack } from './layout';
 import type { DemolitionError, PlacementError } from './layout';
-import type { GameState, Id, Orientation } from './types';
+import { dismiss, hire } from './people';
+import type { DismissError, HireError } from './people';
+import type { Duty, GameState, Id, Orientation } from './types';
 
 /**
  * Player input. An action is applied at once, between two ticks, with the
@@ -15,9 +19,19 @@ import type { GameState, Id, Orientation } from './types';
  */
 export type Action =
   | { type: 'build-rack'; x: number; y: number; orientation: Orientation }
-  | { type: 'demolish-rack'; rackId: Id };
+  | { type: 'demolish-rack'; rackId: Id }
+  | { type: 'hire'; candidateId: Id }
+  | { type: 'dismiss'; workerId: Id }
+  | { type: 'set-duty'; workerId: Id; duty: Duty }
+  | { type: 'resolve-incident'; incidentId: Id; choiceId: string };
 
-export type ActionError = PlacementError | DemolitionError | 'not-enough-cash';
+export type ActionError =
+  | PlacementError
+  | DemolitionError
+  | HireError
+  | DismissError
+  | ResolveError
+  | 'not-enough-cash';
 
 export type ActionResult = { ok: true; events: SimEvent[] } | { ok: false; error: ActionError };
 
@@ -42,5 +56,17 @@ export function applyAction(state: GameState, ctx: SimContext, action: Action): 
       emit(ctx, { type: 'rack-demolished', tick: state.tick, rackId: action.rackId });
       return null;
     }
+    case 'hire':
+      return hire(state, ctx, action.candidateId);
+    case 'dismiss':
+      return dismiss(state, ctx, action.workerId);
+    case 'set-duty': {
+      const worker = state.workers.find((w) => w.id === action.workerId);
+      if (!worker) return 'unknown-worker';
+      worker.duty = action.duty;
+      return null;
+    }
+    case 'resolve-incident':
+      return resolve(state, ctx, action.incidentId, action.choiceId);
   }
 }

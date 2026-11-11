@@ -209,6 +209,7 @@ function planEachPick(state: GameState, nav: NavGrid, worker: Worker, order: Ord
     let bestDistance = Infinity;
     for (const pallet of state.pallets.values()) {
       if (pallet.status !== 'stored' || pallet.taskId !== null || pallet.locId === 'in-transit') continue;
+      if (pallet.hold !== null) continue; // astray or damaged: not to be picked from
       const line = order.lines.findIndex((l, i) => need[i] > 0 && l.skuId === pallet.skuId);
       if (line < 0) continue;
       const free = pallet.qty - pallet.reserved - (planned.get(pallet.id) ?? 0);
@@ -264,7 +265,7 @@ function planPalletPick(state: GameState, nav: NavGrid, worker: Worker, order: O
       for (const pallet of state.pallets.values()) {
         if (pallet.status !== 'stored' || pallet.skuId !== order.lines[line].skuId) continue;
         if (pallet.taskId !== null || pallet.reserved > 0 || pallet.locId === 'in-transit') continue;
-        if (taken.has(pallet.id) || pallet.qty > need) continue;
+        if (pallet.hold !== null || taken.has(pallet.id) || pallet.qty > need) continue;
         const loc = state.locations.get(pallet.locId);
         if (!loc || !reachable(nav, region, accessOf(nav, loc.id))) continue;
         const distance = manhattan(here, loc.cell);
@@ -300,6 +301,32 @@ function planPalletPick(state: GameState, nav: NavGrid, worker: Worker, order: O
   vehicle.userId = worker.id;
   order.status = 'picking';
   return task;
+}
+
+/** Go to a pallet an incident needs worked on: search for it, or repack it. */
+export function planAttend(state: GameState, nav: NavGrid, worker: Worker): Task | null {
+  const region = regionAt(nav, worker.pos);
+  for (const pallet of state.pallets.values()) {
+    if (pallet.attendFor === null || pallet.taskId !== null || pallet.locId === 'in-transit') continue;
+    if (!reachable(nav, region, accessOf(nav, pallet.locId))) continue;
+    const task = newTask(state, 'attend', worker, [
+      toLoc(pallet.locId),
+      { op: 'attend', palletId: pallet.id, incidentId: pallet.attendFor },
+    ]);
+    pallet.taskId = task.id;
+    return task;
+  }
+  return null;
+}
+
+/** Misplaced pallets holding what this order needs: why it cannot be picked. */
+export function lostStockFor(state: GameState, order: Order): Pallet[] {
+  const lost: Pallet[] = [];
+  for (const pallet of state.pallets.values()) {
+    if (pallet.hold !== 'lost') continue;
+    if (order.lines.some((line) => line.picked < line.qty && line.skuId === pallet.skuId)) lost.push(pallet);
+  }
+  return lost;
 }
 
 export function planPick(state: GameState, nav: NavGrid, worker: Worker, order: Order): Task | null {

@@ -141,6 +141,13 @@ export interface Pallet {
   taskId: Id | null;
   /** Order the pallet is staged for. */
   orderId: Id | null;
+  /**
+   * Why nobody may pick from it right now: 'lost' — it is not where the
+   * records say; 'damaged' — waiting for a decision. Null when all is well.
+   */
+  hold: 'lost' | 'damaged' | null;
+  /** Incident that asked for someone to work on this pallet (search, repack). */
+  attendFor: Id | null;
   arrivedTick: number;
   expiryDay: number | null;
 }
@@ -268,7 +275,9 @@ export interface Truck {
 
 // ----------------------------------------------------------- workers ----
 
-export type Role = 'warehouseman';
+export type Role = 'warehouseman' | 'temp';
+/** What a worker may be given: everything, only receiving and put-away, or only picking. */
+export type Duty = 'all' | 'inbound' | 'picking';
 export type Qualification = 'none' | 'forklift' | 'shift-lead';
 /**
  * off     – not in the building
@@ -299,6 +308,19 @@ export interface Worker {
   /** Wages earned since the last pay day. */
   wagesOwed: Cents;
   hiredDay: number;
+  duty: Duty;
+  /** Still learning the ropes until this day (GDD: first week). */
+  trainingUntilDay: number;
+  /** At home ill until this day; null when well. */
+  sickUntilDay: number | null;
+  /** Came in although ill: starts each shift tired until this day. */
+  unwellUntilDay: number | null;
+  /** An agency temp goes back on this day; null for employees. */
+  tempUntilDay: number | null;
+  /** Dismissed: leaves for good as soon as the task in hand is done. */
+  leaving: boolean;
+  /** Minutes worked after the end of the shift today. */
+  overtimeToday: number;
   status: WorkerStatus;
   pos: Vec2;
   /**
@@ -337,7 +359,7 @@ export interface Vehicle {
 
 // ------------------------------------------------------------- tasks ----
 
-export type TaskKind = 'unload' | 'putaway' | 'pick';
+export type TaskKind = 'unload' | 'putaway' | 'pick' | 'attend';
 
 /** Somewhere a worker can be sent. */
 export type Target =
@@ -361,6 +383,8 @@ export type Step =
   /** Pick units from a pallet for an order line. */
   | { op: 'pick'; palletId: Id; orderId: Id; line: number; qty: number }
   | { op: 'pack'; orderId: Id }
+  /** Work an incident asked for at a pallet: search for it, repack it. */
+  | { op: 'attend'; palletId: Id; incidentId: Id }
   /** All pallets of the order are staged. */
   | { op: 'stage'; orderId: Id };
 
@@ -387,7 +411,9 @@ export type LedgerKind =
   | 'penalty-error'
   | 'demurrage'
   /** Building and taking down racks (a refund is a positive entry). */
-  | 'construction';
+  | 'construction'
+  /** What dealing with an incident cost. */
+  | 'incident';
 
 export interface LedgerEntry {
   tick: number;
@@ -457,14 +483,16 @@ export type EntityRef =
   | { kind: 'location'; id: LocId }
   | { kind: 'client'; id: ClientId };
 
+export type IncidentKind = 'wrong-shipment' | 'lost-goods' | 'sick-leave' | 'dock-congestion' | 'damaged-pallet';
+
 /**
  * A problem the player has to decide about (GDD "Realistické problémy").
- * The game never resolves one by itself. Incidents arrive with milestone M4;
- * until then the list stays empty.
+ * The game does not solve it for them: if the deadline passes, the
+ * do-nothing choice (the first one) applies.
  */
 export interface Incident {
   id: Id;
-  kind: string;
+  kind: IncidentKind;
   /** i18n key of the cause shown to the player. */
   cause: string;
   /** What it is about, and where its icon goes in the hall. */
@@ -472,9 +500,19 @@ export interface Incident {
   cell: Cell | null;
   createdTick: number;
   deadlineTick: number | null;
-  /** The 2–3 things the player can do about it. */
+  /** The 2–3 things the player can do about it; the first is what happens if they do nothing. */
   choices: { id: string; labelKey: string }[];
-  resolved: { choiceId: string; tick: number } | null;
+  /** Numbers the texts and consequences refer to (amounts in cents, minutes, days…). */
+  params: Record<string, number>;
+  resolved: { choiceId: string; tick: number; byDeadline: boolean } | null;
+}
+
+/** Someone who could be hired today. */
+export interface Candidate {
+  id: Id;
+  name: string;
+  stats: WorkerStats;
+  wagePerMonth: Cents;
 }
 
 // -------------------------------------------------------------- state ----
@@ -508,11 +546,21 @@ export interface GameState {
   vehicles: Vehicle[];
   tasks: Task[];
   incidents: Incident[];
+  /** Today's applicants (GDD: three a day). */
+  candidates: Candidate[];
+  /** "All hands to the dock": until this tick nobody picks. */
+  rushUntilTick: number;
+  /** An evening stock count has been ordered for today. */
+  stockCountTonight: boolean;
   ledger: LedgerEntry[];
   invoices: Invoice[];
   today: DayStats;
   reports: DailyReport[];
-  settings: { putawayStrategy: PutawayStrategy };
+  settings: {
+    putawayStrategy: PutawayStrategy;
+    /** Random trouble (lost and damaged pallets, sickness, congestion) can be switched off for tests. */
+    incidents: boolean;
+  };
 }
 
 // ------------------------------------------------------- read-only view ----

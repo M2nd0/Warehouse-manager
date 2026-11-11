@@ -1,10 +1,12 @@
 import { balance } from '../../data/balance';
 import { emit, navOf } from '../context';
 import type { SimContext } from '../context';
+import { attended, maybeDamage, maybeMisplace } from '../incidents';
 import { stockOf } from '../inventory';
 import { isWalkable } from '../nav';
 import type { NavGrid } from '../nav';
 import { findPath } from '../pathfinding';
+import { mispickChance, speedFactor } from '../people';
 import { chance } from '../rng';
 import type { Cell, GameState, Order, OrderLine, Step, Target, Task, Vec2, Worker } from '../types';
 
@@ -12,15 +14,9 @@ import type { Cell, GameState, Order, OrderLine, Step, Target, Task, Vec2, Worke
  * Carrying out task steps: how long each takes and what it changes.
  */
 
-const statIndex = (stat: number): number => Math.min(5, Math.max(1, Math.round(stat))) - 1;
-
-export function speedFactor(worker: Worker): number {
-  return balance.worker.speedFactorByStat[statIndex(worker.stats.speed)];
-}
-
 /** Metres per minute right now (slower with a pallet jack, slower still loaded). */
 export function walkSpeed(state: GameState, worker: Worker): number {
-  let speed = balance.worker.walkSpeed * speedFactor(worker);
+  let speed = balance.worker.walkSpeed * speedFactor(worker, state.day);
   if (worker.vehicleId !== null) {
     const vehicle = state.vehicles.find((v) => v.id === worker.vehicleId);
     if (vehicle) {
@@ -58,8 +54,15 @@ function stepMinutes(state: GameState, worker: Worker, step: Step): number {
       minutes = h.packOrder + h.packLine * (order ? order.lines.length : 0);
       break;
     }
+    case 'attend':
+      // Searching for a misplaced pallet, or repacking a damaged one.
+      minutes =
+        state.pallets.get(step.palletId)?.hold === 'lost'
+          ? balance.incidents.searchMinutes
+          : balance.incidents.repackMinutes;
+      break;
   }
-  return minutes / speedFactor(worker);
+  return minutes / speedFactor(worker, state.day);
 }
 
 /** Cells from which a target can be reached or served, on the current floor plan. */
@@ -125,7 +128,7 @@ export function beginStep(state: GameState, ctx: SimContext, worker: Worker, tas
 }
 
 function mispick(state: GameState, worker: Worker): boolean {
-  return chance(state, balance.worker.mispickChanceByStat[statIndex(worker.stats.accuracy)]);
+  return chance(state, mispickChance(worker, state.day));
 }
 
 function linePicked(state: GameState, line: OrderLine): void {
@@ -170,6 +173,7 @@ export function finishStep(state: GameState, ctx: SimContext, worker: Worker, ta
       }
       pallet.locId = 'in-transit';
       worker.carrying = pallet.id;
+      maybeDamage(state, ctx, worker, pallet);
       if (step.order) {
         // A full pallet leaves storage for an order.
         const stock = stockOf(state, pallet.skuId);
@@ -200,6 +204,7 @@ export function finishStep(state: GameState, ctx: SimContext, worker: Worker, ta
       if (loc.kind === 'rack') {
         pallet.status = 'stored';
         stockOf(state, pallet.skuId).stored += pallet.qty;
+        maybeMisplace(state, worker, pallet);
         state.today.palletsPutAway++;
         emit(ctx, { type: 'pallet-stored', tick: state.tick, palletId: pallet.id, locId: loc.id });
       } else if (pallet.status === 'inbound') {
@@ -244,6 +249,15 @@ export function finishStep(state: GameState, ctx: SimContext, worker: Worker, ta
     case 'stage':
       orderReady(state, ctx, state.orders.find((o) => o.id === step.orderId));
       break;
+
+    case 'attend': {
+      const pallet = state.pallets.get(step.palletId);
+      if (pallet) {
+        attended(pallet);
+        pallet.taskId = null;
+      }
+      break;
+    }
   }
 }
 

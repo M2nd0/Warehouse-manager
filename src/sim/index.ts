@@ -11,6 +11,7 @@ import * as agents from './systems/agents';
 import * as clock from './systems/clock';
 import * as equipment from './systems/equipment';
 import * as finance from './systems/finance';
+import * as incidents from './systems/incidents';
 import * as orders from './systems/orders';
 import * as planner from './systems/planner';
 import * as trucks from './systems/trucks';
@@ -41,7 +42,7 @@ export interface Sim {
 /**
  * Order of systems within a tick (GDD "Simulační tick"):
  * time → trucks → orders → task planner → agents → equipment →
- * [incidents: M4] → finance.
+ * incidents → finance.
  */
 const systems: readonly { step(state: GameState, ctx: SimContext): void }[] = [
   clock,
@@ -50,6 +51,7 @@ const systems: readonly { step(state: GameState, ctx: SimContext): void }[] = [
   planner,
   agents,
   equipment,
+  incidents,
   finance,
 ];
 

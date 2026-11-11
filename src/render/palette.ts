@@ -30,6 +30,7 @@ export const palette = {
 /** Vest colour tells the role (GDD: people have no faces). */
 export const vestColors = {
   warehouseman: 0xf2c230,
+  temp: 0xe07b39,
 } as const;
 
 /** Cab colour tells whose truck it is. */

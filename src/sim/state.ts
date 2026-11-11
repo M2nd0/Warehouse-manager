@@ -12,7 +12,7 @@ import { seedRng } from './rng';
 import type { Client, ClientId, GameState, Vehicle, VehicleKind, Worker } from './types';
 
 /** Bump when the shape of GameState changes; saves carry it for migration. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface NewGameOptions {
   seed?: number;
@@ -22,6 +22,8 @@ export interface NewGameOptions {
   clients?: ClientId[];
   /** Racks already standing when the game starts (default: none — the player builds). */
   racks?: RackPlacement[];
+  /** Random incidents (default on). Tests of other things switch them off. */
+  incidents?: boolean;
 }
 
 function buildHall(state: GameState, spec: HallSpec): void {
@@ -88,19 +90,27 @@ function createClient(spec: ClientSpec, startDay: number): Client {
   };
 }
 
-export function createWorker(state: GameState): Worker {
+/** An experienced, average warehouseman unless told otherwise. */
+export function createWorker(state: GameState, spec: Partial<Pick<Worker, 'name' | 'role' | 'stats' | 'wagePerMonth' | 'trainingUntilDay' | 'tempUntilDay'>> = {}): Worker {
   const stat = balance.worker.startStat;
   const worker: Worker = {
     id: state.nextId++,
-    name: workerNames[state.workers.length % workerNames.length],
-    role: 'warehouseman',
-    stats: { speed: stat, accuracy: stat, care: stat, stamina: stat },
+    name: spec.name ?? workerNames[state.workers.length % workerNames.length],
+    role: spec.role ?? 'warehouseman',
+    stats: spec.stats ? { ...spec.stats } : { speed: stat, accuracy: stat, care: stat, stamina: stat },
     qualification: 'none',
     fatigue: 0,
     morale: balance.worker.startMorale,
-    wagePerMonth: balance.worker.wagePerMonth,
+    wagePerMonth: spec.wagePerMonth ?? balance.worker.wagePerMonth,
     wagesOwed: 0,
     hiredDay: state.day,
+    duty: 'all',
+    trainingUntilDay: spec.trainingUntilDay ?? state.day,
+    sickUntilDay: null,
+    unwellUntilDay: null,
+    tempUntilDay: spec.tempUntilDay ?? null,
+    leaving: false,
+    overtimeToday: 0,
     status: 'off',
     pos: { ...state.hall.entrance },
     trail: [],
@@ -147,11 +157,14 @@ export function createGame(options: NewGameOptions = {}): GameState {
     vehicles: [],
     tasks: [],
     incidents: [],
+    candidates: [],
+    rushUntilTick: 0,
+    stockCountTonight: false,
     ledger: [],
     invoices: [],
     today: emptyDayStats(),
     reports: [],
-    settings: { putawayStrategy: 'chaos' },
+    settings: { putawayStrategy: 'chaos', incidents: options.incidents ?? true },
   };
 
   buildHall(state, garage);

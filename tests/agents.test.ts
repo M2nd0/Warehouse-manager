@@ -237,6 +237,8 @@ describe('agents: work', () => {
         status: 'inbound',
         taskId: null,
         orderId: null,
+        hold: null,
+        attendFor: null,
         arrivedTick: state.tick,
         expiryDay: null,
       };

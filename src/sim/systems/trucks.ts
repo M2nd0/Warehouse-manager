@@ -2,6 +2,7 @@ import { balance } from '../../data/balance';
 import { emit } from '../context';
 import type { SimContext } from '../context';
 import { post } from '../economy/ledger';
+import { raiseWrongShipment } from '../incidents';
 import { randomInt } from '../rng';
 import { dayStartTick } from '../time';
 import type { Client, GameState, Id, Order, Pallet, SkuId, Truck } from '../types';
@@ -92,6 +93,8 @@ function scheduleDay(state: GameState): void {
         status: 'inbound',
         taskId: null,
         orderId: null,
+        hold: null,
+        attendFor: null,
         arrivedTick: timeWindow.start,
         expiryDay: sku.shelfLifeDays === null ? null : state.day + sku.shelfLifeDays,
       };
@@ -246,10 +249,9 @@ function shipOrder(state: GameState, ctx: SimContext, order: Order): void {
     client.unbilled.lines += order.lines.length;
     today.revenue += order.lines.length * client.contract.pickFeePerLine;
     if (wrong) {
-      // The customer finds the wrong item: the contract's penalty applies.
+      // The customer finds the wrong item and complains: the player decides what to do about it.
       client.month.wrong++;
-      today.penalties += client.contract.errorPenalty;
-      post(state, ctx, 'penalty-error', -client.contract.errorPenalty, client.id);
+      raiseWrongShipment(state, ctx, client.id, order.id, client.contract.errorPenalty);
     }
   }
   emit(ctx, { type: 'order-shipped', tick: state.tick, orderId: order.id, onTime });

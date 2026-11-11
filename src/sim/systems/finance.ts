@@ -3,6 +3,8 @@ import { emit } from '../context';
 import type { SimContext } from '../context';
 import { post } from '../economy/ledger';
 import { buildReport, emptyDayStats } from '../economy/report';
+import { closeDay as closeIncidentDay } from '../incidents';
+import { updateMorale } from '../people';
 import type { Cents, Client, ClientId, GameState } from '../types';
 
 const { daysPerMonth, daysPerWeek } = balance.time;
@@ -89,6 +91,15 @@ function closeDay(state: GameState, ctx: SimContext): void {
   const report = buildReport(state, wagesToday, Math.round(balance.rent.garagePerMonth / daysPerMonth));
   state.reports.push(report);
   emit(ctx, { type: 'day-ended', tick: state.tick, report });
+
+  // GDD: reputation grows with OTIF and falls with complaints.
+  if (report.otif !== null) {
+    const { goodDay, badDay } = balance.incidents.reputation;
+    const delta = report.otif >= 0.95 ? goodDay : report.otif < 0.85 ? badDay : 0;
+    state.reputation = Math.min(100, Math.max(0, state.reputation + delta));
+  }
+  for (const worker of state.workers) updateMorale(worker);
+  closeIncidentDay(state, ctx);
 
   // Start the new day with a clean slate.
   state.today = emptyDayStats();

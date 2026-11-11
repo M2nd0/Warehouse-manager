@@ -1,4 +1,6 @@
+import { balance } from '../../data/balance';
 import type { SimContext } from '../context';
+import { tire } from '../people';
 import { beginStep, completeTask, finishStep, walkSpeed } from '../tasks/execute';
 import type { GameState, Worker } from '../types';
 
@@ -21,8 +23,11 @@ export function step(state: GameState, ctx: SimContext): void {
     const task = worker.taskId === null ? undefined : state.tasks.find((t) => t.id === worker.taskId);
     if (!task) {
       worker.status = 'idle';
+      tire(worker, 0);
       continue;
     }
+    // Still at it after the shift has ended: overtime (bad for morale).
+    if (ctx.minute >= balance.shift.end || ctx.minute < balance.shift.start) worker.overtimeToday++;
 
     let budget = 1;
     let blocked = false;
@@ -45,7 +50,9 @@ export function step(state: GameState, ctx: SimContext): void {
       task.stepIdx++;
       task.stepStarted = false;
     }
-    state.today.busyMinutes += blocked ? 0 : 1 - Math.max(0, budget);
+    const busy = blocked ? 0 : 1 - Math.max(0, budget);
+    state.today.busyMinutes += busy;
+    tire(worker, busy);
 
     if (task.stepIdx >= task.steps.length) {
       completeTask(state, worker, task);

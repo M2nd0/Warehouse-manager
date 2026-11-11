@@ -58,8 +58,8 @@ describe('queries: operations', () => {
   it('counts incidents that still wait for a decision', () => {
     const { state } = createSim();
     expect(unresolvedIncidents(state)).toBe(0);
-    const base = { kind: 'x', cause: 'c', subject: null, cell: null, createdTick: 0, deadlineTick: null, choices: [] };
-    state.incidents.push({ ...base, id: 1, resolved: null }, { ...base, id: 2, resolved: { choiceId: 'a', tick: 5 } });
+    const base = { kind: 'sick-leave' as const, cause: 'c', subject: null, cell: null, createdTick: 0, deadlineTick: null, choices: [], params: {} };
+    state.incidents.push({ ...base, id: 1, resolved: null }, { ...base, id: 2, resolved: { choiceId: 'a', tick: 5, byDeadline: false } });
     expect(unresolvedIncidents(state)).toBe(1);
   });
 });

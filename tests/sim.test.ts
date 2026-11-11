@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { balance } from '../src/data/balance';
-import { resumeSim } from '../src/sim';
+import { SAVE_VERSION, resumeSim } from '../src/sim';
 import type { SimEvent } from '../src/sim';
 import { ledgerTotal } from '../src/sim/economy/ledger';
 import { TICKS_PER_DAY } from '../src/sim/time';
@@ -120,7 +120,7 @@ describe('determinism', () => {
     const sim = starterSim({ seed: 3 });
     sim.run(TICKS_PER_DAY);
     const parsed = JSON.parse(serializeState(sim.state)) as Record<string, unknown>;
-    expect(parsed.version).toBe(1);
+    expect(parsed.version).toBe(SAVE_VERSION);
     expect(parsed.seed).toBe(3);
   });
 });

@@ -86,6 +86,83 @@ export const balance = {
     startMorale: 70,
   },
 
+  people: {
+    /** GDD: 1–3 people in the garage. */
+    maxStaff: 3,
+    /** GDD: three random candidates a day. */
+    candidatesPerDay: 3,
+    /** Wage asked = base + this much per stat point (four stats, 1–5 each; average 1 600 €). */
+    wageBase: eur(1000),
+    wagePerStatPoint: eur(50),
+    /** GDD: a new hire works at half speed with twice the errors for the first week. */
+    trainingDays: 7,
+    trainingSpeedFactor: 0.5,
+    trainingErrorFactor: 2,
+    fatigue: {
+      /** Points per minute of work for the stamina stat 1–5 (stat 3 reaches 70 after a full busy shift). */
+      perBusyMinuteByStamina: [0.19, 0.165, 0.14, 0.12, 0.1],
+      /** Points lost per idle minute on shift. */
+      recoverPerIdleMinute: 0.04,
+      /** GDD: above 70 % every stat drops. */
+      threshold: 70,
+      /** At 100 % fatigue: this much slower, this many times the errors and accidents. */
+      maxSpeedLoss: 0.4,
+      maxErrorFactor: 2.5,
+    },
+    morale: {
+      /** Where morale settles with a fair wage and no trouble. */
+      base: 70,
+      /** Share of the gap to its target that morale closes each day. */
+      driftPerDay: 0.25,
+      /** Points off the target for ending the day exhausted / per hour of overtime. */
+      exhaustedPenalty: 15,
+      overtimePenaltyPerHour: 6,
+      /** Points on the target per 100 € of wage above what the stats are worth (and off, below). */
+      perHundredEuroAboveMarket: 4,
+    },
+  },
+
+  incidents: {
+    /** Chance a pallet is put where the records do not say, by accuracy stat 1–5 (GDD: no WMS, chaos). */
+    misplaceChanceByStat: [0.05, 0.03, 0.018, 0.009, 0.004],
+    /** Chance of damaging a pallet per lift, by care stat 1–5, for a fully fragile SKU. */
+    damageChanceByStat: [0.03, 0.018, 0.01, 0.005, 0.002],
+    /** Even solid goods get damaged this share as often as fully fragile ones. */
+    damageBaseShare: 0.25,
+    /** Daily chance of calling in sick at morale 70, and how much each point below adds. */
+    sickChancePerDay: 0.012,
+    sickChancePerMoralePoint: 0.0012,
+    sickDays: { min: 2, max: 5 },
+    /** A truck waiting this long for the dock is a congestion incident. */
+    congestionAfterMinutes: 45,
+    /** Hours the player has to decide before the default applies. */
+    decideWithinHours: { wrongShipment: 24, lostGoods: 48, damagedPallet: 24, dockCongestion: 1 },
+    /** Wrong shipment: replacement costs this × the penalty; a lost dispute this × the penalty. */
+    replacementFactor: 1.5,
+    disputeWinChance: 0.4,
+    disputeLossFactor: 2,
+    /** Lost goods: minutes one person searches; cost of an evening stock count. */
+    searchMinutes: 40,
+    stockCountCost: eur(60),
+    /** Damaged pallet: share written off and what the client is paid; repacking time and material. */
+    writeOffShare: 0.3,
+    writeOffCompensation: eur(90),
+    repackMinutes: 30,
+    repackCost: eur(12),
+    hideCaughtChance: 0.5,
+    hideCaughtFactor: 2,
+    /** Dock congestion: fee for sending a truck away; how long "all hands to the dock" lasts. */
+    rebookFee: eur(30),
+    allHandsMinutes: 60,
+    /** Sick leave: an agency temp's monthly rate and stats; morale cost of asking someone to come in ill. */
+    tempWagePerMonth: eur(2400),
+    tempStats: { speed: 3, accuracy: 2, care: 2, stamina: 3 },
+    comeInMoralePenalty: 15,
+    comeInFatigue: 50,
+    /** Reputation moves. */
+    reputation: { replaced: 1, disputeLost: -2, hideCaught: -3, sentAway: -1, goodDay: 0.5, badDay: -1 },
+  },
+
   vehicles: {
     'hand-pallet-jack': {
       /** GDD */
@@ -138,8 +215,9 @@ export const balance = {
      * putaway-blocked = clear the receiving zone because a truck cannot unload
      * pick-due        = orders that must make the next carrier departure
      * pick-ahead      = orders for a later departure
+     * attend          = work an incident asked for (searching, repacking)
      */
-    priorities: ['unload', 'putaway-blocked', 'pick-due', 'putaway', 'pick-ahead'],
+    priorities: ['attend', 'unload', 'putaway-blocked', 'pick-due', 'putaway', 'pick-ahead'],
   },
 
   invoicing: {

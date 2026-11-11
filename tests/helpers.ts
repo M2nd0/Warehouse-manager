@@ -11,9 +11,12 @@ import * as clock from '../src/sim/systems/clock';
 import { TICKS_PER_DAY } from '../src/sim/time';
 import type { GameState, LocId, Order, Pallet, PalletStatus, SkuId } from '../src/sim/types';
 
-/** A new game with the ready-made garage layout (20 racks, 60 floor slots) already standing. */
+/**
+ * A new game with the ready-made garage layout (20 racks, 60 floor slots)
+ * already standing. Random incidents are off unless a test asks for them.
+ */
 export function starterSim(options: NewGameOptions = {}): Sim {
-  return createSim({ seed: 1, racks: garageStarterRacks, ...options });
+  return createSim({ seed: 1, racks: garageStarterRacks, incidents: false, ...options });
 }
 
 /** Tick of a clock time. */
@@ -72,6 +75,8 @@ export function addPallet(
     status,
     taskId: null,
     orderId: null,
+    hold: null,
+    attendFor: null,
     arrivedTick: state.tick,
     expiryDay: null,
   };
