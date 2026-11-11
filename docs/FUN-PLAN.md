@@ -33,7 +33,7 @@ Read `CLAUDE.md` first: its architecture rules still apply to everything below.
 | 5 | Goals and growth | Objectives, more clients, the move to a bigger hall | large |
 | 6 | Look and sound | A place that looks alive, feedback for every action | medium, can run alongside any step |
 
-Recommended order: 1 → 2 → 6 (first half) → 3 → 4 → 5 → 6 (rest). Steps 1 and 2 change the feel of the game most for the least work.
+Recommended order: 1 → 2 → 6 (first half) → 3 → 4 → 6 (rest) → 5. Steps 1 and 2 change the feel of the game most for the least work; step 5 waits until the garage is fun on its own (owner's decision, section 7).
 
 ---
 
@@ -76,7 +76,7 @@ Goal: a meaningful choice every in-game hour, each one a real 3PL situation. All
 
 **Receiving check.** Per delivery: check every pallet (slow, catches short or damaged deliveries from the client → the "wrong delivery" incident from the GDD) or wave it through (fast, the problem surfaces later as lost goods).
 
-**Evening planning phase.** The day ends at 15:30 with the report, then a short "tomorrow" screen: deliveries, expected orders, who is on shift, applicants, offers. The player sets duties and priorities for tomorrow, then presses "start day". Nights are skipped. This gives the day a clear rhythm and removes eight hours of nothing.
+**Evening planning phase.** The day ends at 15:30 with the report, then a short "tomorrow" screen: deliveries, expected orders, who is on shift, applicants, offers. The player sets duties and priorities for tomorrow. If nobody works the night, a "skip to morning" button appears (optional — the player may also let the night run); with a staffed night shift there is no skip. This gives the day a clear rhythm and removes eight hours of nothing.
 
 **Daily and weekly targets from clients.** "Ship 95 % on time this week: +150 € bonus." Shown in the Clients panel and on the timeline.
 
@@ -237,9 +237,10 @@ Suggested first prompt for the next session:
 | 5 Goals and growth | not started |
 | 6 Look and sound | not started |
 
-## 7. Questions for the owner
+## 7. Decisions by the owner
 
-- **Night skip**: is ending the day at the report and jumping to the next morning acceptable, or should nights stay for a later night shift?
-- **Models**: CC0 packs now (fast, generic), or custom low-poly models later (a few days of Blender work, distinctive)?
-- **Scope of step 5**: build the small hall (phase 2) next, or first deepen the garage with steps 2–4?
-- **Tone**: strictly sober, or a little warmth (names, small idle animations, a radio in the background)?
+- **Night skip**: when nothing happens at night, offer a "skip to morning" button after the daily report. Once night shifts exist and one is staffed, there is no skip — the night is played.
+- **Models**: the owner has none; choose freely (CC0 packs or generated low-poly), but they must look good — no placeholder boxes in the finished steps.
+- **Scope**: start really small. Deepen the garage first (steps 1–4); the small hall (step 5) comes only after the garage is fun on its own.
+- **Tone**: realistic, with some warmth. Named people, idle and work animations, and a radio playing in the hall are wanted.
+- **Overall feel**: realistic, yet visually pleasant and satisfying to watch — every action should look and sound good (step 6 is not optional polish).
