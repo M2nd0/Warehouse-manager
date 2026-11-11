@@ -10,7 +10,11 @@ npm install
 npm run dev        # http://localhost:5173 (?seed=42 for a fixed game, ?starter for ready-made racks)
 npm run sim -- 30  # 30 in-game days headless, daily reports in the console
 npm run test
+npm run build && npm run test:e2e   # smoke test in a real browser
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests, build and the smoke test on pull requests and on `main`.
+`deploy.yml` publishes to Cloudflare Pages; it needs the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` and a Pages project called `warehouse-manager`.
 
 ## Layout
 

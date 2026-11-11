@@ -1,0 +1,40 @@
+name: Deploy
+
+# Publishes the built game to Cloudflare Pages: production from main, a
+# preview for every pull request (GDD: each milestone has something to show).
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   – a token with the "Cloudflare Pages: Edit" permission
+#   CLOUDFLARE_ACCOUNT_ID  – the account the Pages project lives in
+# and a Pages project named as PROJECT below (create it once in the dashboard
+# or with `npx wrangler pages project create warehouse-manager`).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  PROJECT: warehouse-manager
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Pull requests from forks have no access to the secrets.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ env.PROJECT }} --branch=${{ github.head_ref || github.ref_name }}

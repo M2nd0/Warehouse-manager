@@ -12,6 +12,7 @@ TypeScript strict, Vite, Three.js, Preact overlay UI, Vitest. No other game fram
 - `npm run lint` – ESLint (also forbids Three.js/UI imports, `Math.random` and `Date.now` inside `src/sim`)
 - `npm run build` – typecheck + production build
 - `npm run sim -- [days] [seed] [workers]` – headless run that prints the daily reports
+- `npm run test:e2e` – Playwright smoke test of the built game (`npm run build` first; needs `npx playwright install chromium` once)
 
 ## Architecture rules (non-negotiable)
 - `src/sim/` is pure TypeScript: no DOM, no Three.js imports. Deterministic given seed + inputs.
